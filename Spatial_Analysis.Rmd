@@ -1,0 +1,691 @@
+---
+title: "Spatial_Analysis_Visium"
+author: "Riley Grindle"
+date: "2024-04-16"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = "/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/L166-A_hypo/")
+```
+
+```{r}
+library(dplyr)
+library(Matrix)
+library(viridis)
+library(tidyverse)
+library(Seurat)
+library(SeuratData)
+library(SeuratObject)
+library(SeuratWrappers)
+library(Seurat.utils)
+library(SingleCellExperiment)
+library(gprofiler2)
+library(ggplot2)
+library(ggsankey)
+library(DoubletFinder)
+library(stringr)
+library(patchwork)
+library(loupeR)
+library(presto)
+library(DropletUtils)
+library(PCAtools)
+library(aKNNO)
+library(SpatialCPie)
+library(shinyWidgets)
+
+options(future.globals.maxSize = 1e9)
+options(Seurat.object.assay.version = "v5")
+```
+
+### Required Parameters
+
+```{r}
+# Working Directory
+#    Path to working Directory (leave empty if working in a project)
+param.workingdir        <- ""       
+
+# 10X Data Input
+#   Comma Seperated List of relative paths to Samples (3 Files: features, barcodes, matrix)
+#   (Paths in double quotes) eg. c("./data/Sample1/","./data/Sample2/"","./data/Sample3/")
+param.SampleDirectores  <- c("./data/filtered")
+param.H5_directory      <- "./data"
+#   List of Sample names (same order as paths) (Names in single quotes) 
+#   eg. c('Sample1','Sample2','Sample3')
+param.SampleNames       <- c("limb_L166") 
+#   Number of Recovered cells per sample in same order
+params.CellsRecovered   <- c(4992)
+#   Name of project
+param.ProjectName       <- "pmurawala_001_L166_limb_spatial"        
+
+# Table To Remove unwanted genes
+param.FeatureFile       <- "./data/custom_features.tsv.gz" # Custom feature file containing: MSTR \t MSTR::AMEX::GENE \t Gene Expression
+param.Orig_Space_features <- "./data/orig_out_features.tsv"  # Original feature file containing:  MSTR \t Annotation \t Gene Expression
+param.ID2Gene           <- "./ref/AxolotlBestMatchwCellTypeStrict.tsv"
+param.gene_subset       <- F
+
+# Gene Lists for Cell Cycle Scoring and MT
+#   Currently set to search for pattern. change to a list "c()" for a custom list
+param.mtGeneList        <- c()
+param.g2mGeneList       <- cc.genes.updated.2019$g2m.genes
+param.sGeneList         <- cc.genes.updated.2019$s.genes
+
+# Seurat Object Creation
+#   Which column of the feature file to use for gene names (generally 2 unless annotations
+#   are not great)
+param.geneColumn        <- 2 
+#   Min number cells per feature (Keep Same)
+param.minCells          <- 3
+#   Min number of features per cell (Keep Same)
+param.minFeatures       <- 200
+
+# Seurat Scaling
+#    in vars to regress, it should be metadata sections to be regressed or genes i.e. eGFP
+params.vars2Regress     <- c("nCount_Spatial","nFeature_Spatial","percent.mt")
+
+
+param.cluster_prefix <- "SCT_aKNNO_Res."
+
+# Post Scale Options
+#    True of False: make Loupe File
+param.makeLoupe            <- T   
+#    List of Resolutions in ascending order ex. c(0.05,0.1,0.3,0.5,0.7,0.9)
+param.resolutions          <- c(0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.2,1.5) 
+#    True of False: Run integration
+param.integration          <- F   
+#    If param.integration set to true, decide which integration method to use. 
+#    (options: CCA, RPCA, Harmony, FastMNN) scVIIntegration needs additional setup -- conda-env
+param.integrationMethod   <- "Harmony"                          
+
+
+
+# Save Final Merged RDS file at end of Script (Good for keeping Progressive Versions of
+# Seurat object)
+param.saveRdsSO         <- T       
+
+```
+
+#### Set working directory if not in a project
+
+```{r}
+if(param.workingdir != ""){
+    setwd(param.workingdir)
+}
+```
+
+
+#### Make output directories
+
+```{r}
+if(!dir.exists("figures/")){
+    dir.create("figures/")
+}
+if(!dir.exists("markers/")){
+    dir.create("markers/")
+}
+```
+
+#### Make output directories
+
+```{r}
+if(!dir.exists("figures/spatial/")){
+    dir.create("figures/spatial")
+}
+if(!dir.exists("markers/spatial")){
+    dir.create("markers/spatial")
+}
+
+```
+
+#### Removal of unwanted genes - Not used for mouse
+
+```{r}
+ID2Gene <- read.delim(param.ID2Gene,sep = "\t" ,header = F)
+rownames(ID2Gene) = ID2Gene[,1]
+
+unannotated.transcripts = rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("PEG10",ID2Gene$V2)] ]
+unannotated.transcripts = unique(c(rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("L1TD1",ID2Gene$V2)] ], unannotated.transcripts))
+unannotated.transcripts = unique(c(rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("RTL",ID2Gene$V2)] ], unannotated.transcripts))
+unannotated.transcripts = unique(c(rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("GIN1",ID2Gene$V2)] ], unannotated.transcripts))
+unannotated.transcripts = unique(c(rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("L1\\-RT",ID2Gene$V2)] ], unannotated.transcripts))
+unannotated.transcripts = unique(c(rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("^N\\/A",ID2Gene$V2)] ], unannotated.transcripts))
+unannotated.transcripts = unique(c(rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("^AMEX",ID2Gene$V2)] ], unannotated.transcripts))
+
+ID2Gene = ID2Gene[!rownames(ID2Gene) %in% unannotated.transcripts,]
+
+rp.genes = rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("^RPL",ID2Gene$V2)]]
+rp.genes = unique(c(rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("^RPS",ID2Gene$V2)] ], rp.genes))
+
+ID2Gene = ID2Gene[!rownames(ID2Gene) %in% rp.genes,]
+
+Features <- read.delim(param.FeatureFile,sep = "\t",header = F)
+Features[,2][which(duplicated(Features[,2]))]
+rownames(Features) = Features[,2]
+
+Features <- Features[Features$V1 %in% rownames(ID2Gene),]
+```
+
+#### Create Seurat from Spatial Experiment
+
+```{r}
+
+NameSO <- paste0("SO_",param.SampleNames[1], "_SPAT")
+assign(NameSO, Load10X_Spatial(data.dir = param.H5_directory, filter.matrix = F))
+
+```
+
+# Feature Name Editing of Seurat Object
+
+```{r}
+SO <- get(NameSO)
+
+# Custom Feature File
+features <- read.delim(param.FeatureFile,sep = "\t",header = F)
+
+# Original Spaceranger feature file output
+inFeatures <- read.delim(param.Orig_Space_features, sep = "\t", header = F)
+
+inFeatures$ordering <- row.names(inFeatures)
+
+inFeatures$ordering <- str_pad(inFeatures$order, 6, pad = "0" )
+
+outFeatures <- merge(features,inFeatures,by.x = 1,by.y = 1, all = T)
+
+outFeatures <- outFeatures[order(outFeatures$ordering),]
+
+SO.rn <- RenameGenesSeurat(SO,newnames = outFeatures$V2.x, assay = "Spatial")
+
+assign(NameSO, SO.rn)
+
+if (param.gene_subset){
+  assign(NameSO, get(NameSO)[which(rownames(get(NameSO)) %in% rownames(Features)),])
+} else {
+}
+```
+# Removing "_" in gene names 
+
+```{r}
+new_features <- rownames(get(NameSO))
+
+for (i in 1:length(new_features)) {
+  
+  gene <- new_features[i]
+  
+  gl <- unlist(strsplit(gene, ""))
+  
+  if ("_" %in% gl) {
+    gene <- gsub("_", "-", gene)
+  }
+  
+  new_features[i] <- gene
+  
+}
+
+
+SO.rn <- RenameGenesSeurat(get(NameSO),newnames = new_features, assay = "Spatial")
+assign(NameSO, SO.rn)
+
+```
+
+
+
+
+
+# Validate SO 
+
+```{r}
+print(get(NameSO))
+```
+
+# Calculate MT pct - Spatial
+
+```{r}
+mito.genes <- row.names(get(NameSO))[grepl(pattern = "^mt-", x = row.names(get(NameSO)))]
+#mito.contig <- c(rownames(ID2Gene)[ID2Gene$V2 %in% mito.genes ] , rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("^COX",ID2Gene$V2)]] )
+#mito.contig <- Features[Features$V1 %in% mito.contig,]
+#mito.contig$V2 <- gsub("_","-",mito.contig$V2)
+
+
+calcMT <- function(SO) {
+    mito.contig.sampSpec <- intersect(mito.genes , rownames(SO))
+    SO[["percent.mt"]] <- PercentageFeatureSet(SO, features = mito.contig.sampSpec)
+    SO
+}
+
+
+print(paste0("Calculating MT% on Sample: ", NameSO))
+assign(NameSO, calcMT(get(NameSO)))
+
+```
+
+# Populating SeuratObjList with Spatial Slices
+
+```{r}
+SeuratObjList <- c()
+SeuratObjList <- append(SeuratObjList, NameSO)
+```
+
+#### Normalize Data
+
+```{r}
+for (samp in SeuratObjList){
+    print(paste0("Normalizing data on Sample: ", samp))
+    assign(samp, SCTransform(get(samp), return.only.var.genes = FALSE, assay = 'Spatial', vars.to.regress = params.vars2Regress))
+}
+
+
+```
+
+#### Find Variable Features
+
+```{r}
+#for (samp in SeuratObjList){
+    #print(paste0("Finding variable features on sample: ", samp))
+    #assign(samp, FindVariableFeatures(get(samp)))
+#}
+```
+
+# Plot QC metrics - Spatial
+
+```{r}
+samp <- SeuratObjList[1]
+
+plot1 <- VlnPlot(get(NameSO), features = "nCount_Spatial", pt.size = -1) + NoLegend() + xlab(param.SampleNames) + theme(axis.ticks.x = element_blank(), axis.text.x = element_blank())
+plot2 <- VlnPlot(get(NameSO), features = "nFeature_Spatial", pt.size = -1) + NoLegend() + xlab(param.SampleNames) + theme(axis.ticks.x = element_blank(), axis.text.x = element_blank())
+plot3 <- VlnPlot(get(NameSO), features = "percent.mt", pt.size = -1) + NoLegend() + xlab(param.SampleNames) + theme(axis.ticks.x = element_blank(), axis.text.x = element_blank())
+plot4 <- SpatialFeaturePlot(get(NameSO), features = "nCount_Spatial", pt.size.factor = 2.0) + theme(legend.position = "right")
+plot5 <- SpatialFeaturePlot(get(NameSO), features = "nFeature_Spatial", pt.size.factor = 2.0) + theme(legend.position = "right")
+plot6 <- SpatialFeaturePlot(get(NameSO), features = "percent.mt", pt.size.factor = 2.0) + theme(legend.position = "right")
+plot7 <- FeatureScatter(get(samp), feature1 = "nCount_Spatial", feature2 = "percent.mt", shuffle = T) + theme(legend.title = element_blank(), legend.position = 'none')
+plot8 <- FeatureScatter(get(samp), feature1 = "nCount_Spatial", feature2 = "nFeature_Spatial", shuffle = T) + theme(legend.title = element_blank(), legend.position = 'none')
+
+pdf(file = paste0('figures/spatial/',param.ProjectName,"_",samp,'_preFilterQC_Spatial.pdf'), title = paste0(param.ProjectName," ",samp,' PreFilter QC'), width = 11, height = 8.5)
+  wrap_plots(plot7, plot8)
+  wrap_plots(plot1, plot2, plot3)
+  print(plot4)
+  print(plot5)
+  print(plot6)
+dev.off()
+
+wrap_plots(plot7, plot8)
+wrap_plots(plot1, plot2, plot3)
+  print(plot4)
+  print(plot5)
+  print(plot6)
+
+```
+
+
+#### Calculate Subsetting Bounds and Subset
+
+##### Calculate Values
+
+Be sure to validate these values
+
+```{r}
+for (samp in SeuratObjList){
+    print(paste0("Calcualting subset bounds on sample: ", samp))
+    param.minNCount         <- quantile(get(samp)$nCount_Spatial, probs = 0.80)[["80%"]]
+    param.minNFeature         <- quantile(get(samp)$nFeature_Spatial, probs = 0.80)[["80%"]]
+    param.maxMitoPct        <- 10
+
+    print(paste0("     Minimum N Count set point:        ", param.minNCount))
+    print(paste0("     Minimum N Feature set point:      ", param.minNFeature))
+    print(paste0("     Maximum Mito Percent set point:   ", param.maxMitoPct))
+    
+}
+```
+
+##### Subset Seurat objects - SKIP IF SPATIAL (temporarily)
+
+```{r}
+for (samp in SeuratObjList){
+    print(paste0("Applying subset bounds on sample: ", samp))
+    param.minNCount         <- quantile(get(samp)$nCount_Spatial, probs = 0.30)[["30%"]]
+    param.minNFeature         <- quantile(get(samp)$nFeature_Spatial, probs = 0.30)[["30%"]]
+    param.maxMitoPct         <- 10
+
+    assign(samp,subset(get(samp), subset = nFeature_Spatial > param.minNFeature & nCount_Spatial > param.minNCount))
+}
+```
+
+##### Save and Show - SKIP IF NO SUBSET WAS ENFORCED 
+
+```{r}
+for (samp in SeuratObjList){
+    print(paste0("Building PrescaleQC plots on sample: ", samp))
+    plot1 <- FeatureScatter(get(samp), feature1 = "nCount_Spatial", feature2 = "percent.mt", shuffle = T)
+    plot2 <- FeatureScatter(get(samp), feature1 = "nCount_Spatial", feature2 = "nFeature_Spatial", shuffle = T)
+    vplot1 <- VlnPlot(get(samp), features = c("nCount_Spatial","nFeature_Spatial","percent.mt"),pt.size = -1)
+
+
+    pdf(file = paste0('figures/spatial/',param.ProjectName,"_",samp,'_postFilterQC.pdf'), title = paste0(param.ProjectName," ",samp,' PostFilter QC'), width = 11, height = 8.5)
+    print(plot1 + plot2)
+    print(vplot1)
+    dev.off()
+    
+    print(plot1 + plot2)
+    print(vplot1)
+}
+```
+
+#### Identify Cell Cycle Genes
+
+```{r}
+#g2m.genes <- param.g2mGeneList
+#g2m.genes <- rownames(ID2Gene)[ID2Gene$V2 %in% g2m.genes ] 
+#g2m.genes <- Features[Features$V1 %in% g2m.genes,]
+#g2m.genes$V2 <- gsub("_","-",g2m.genes$V2)
+#g2m.genes <- intersect(g2m.genes$V2 , rownames(SO_kidney_meta))
+
+
+#s.genes <- param.sGeneList
+#s.genes <- rownames(ID2Gene)[ID2Gene$V2 %in% s.genes ] 
+#s.genes <- Features[Features$V1 %in% s.genes,]
+#s.genes$V2 <- gsub("_","-",s.genes$V2)
+#s.genes <- intersect(s.genes$V2 , rownames(SO_kidney_meta))
+
+
+```
+
+#### Calculate Cell Cycle Scores
+
+```{r}
+#for (samp in SeuratObjList){
+    #print(paste0("Calculating Cell Cycle Score on Sample: ", samp))
+    #g2m.genes.sampSpec <- intersect(g2m.genes$V2 , rownames(get(samp)))
+    #s.genes.sampSpec <- intersect(s.genes$V2 , rownames(get(samp)))
+    #assign(samp, CellCycleScoring(get(samp), s.features = s.genes.sampSpec, g2m.features = g2m.genes.sampSpec, set.ident = TRUE))
+#}
+```
+
+#### Scale Data
+
+Description:
+
+-   Shifts the expression of each gene, so that the mean expression across cells is 0
+
+-   Scales the expression of each gene, so that the variance across cells is 1
+
+-   This step gives equal weight in downstream analyses, so that highly-expressed genes do not dominate
+
+-   The results of this are stored in pbmc[["RNA"]]\$scale.data
+
+> > in vars to regress, it should be metadata sections to be regressed or genes i.e. eGFP
+
+```{r}
+#for (samp in SeuratObjList){
+    #print(paste0("Scaling Data on Sample: ", samp))
+    #all.genes <- rownames(get(samp))
+    #assign(samp,ScaleData(get(samp), features = all.genes ,vars.to.regress = params.vars2Regress))
+#}
+```
+
+#### Run PCA on individual samples
+
+```{r}
+for (samp in SeuratObjList){
+    print(paste0("Running PCA on Sample: ", samp))
+    all.genes <- rownames(get(samp))
+    assign(samp,RunPCA(get(samp), assay = "SCT", features = all.genes ,npcs = 100))
+}
+```
+
+
+#### Generate Elbow Plots and Calculate PCs to use
+
+Validate PCs selected
+
+```{r}
+param.pcMax <- c()
+for (samp in SeuratObjList){
+    print(paste0("Generating Elbow Plot for Sample: ", samp))
+    Elbow <- ElbowPlot(get(samp), ndims = 100, reduction = "pca")
+    pdf(paste0("./figures/spatial/",param.ProjectName,"_",samp,"_ElbowPlot.pdf"), 
+        width = 20, height = 15)
+    print(Elbow)
+    dev.off()
+    print(Elbow)
+    pcCount <- 1
+    while(Elbow$data$stdev[pcCount]-Elbow$data$stdev[pcCount+1]>0.01 | Elbow$data$stdev[pcCount+1]-Elbow$data$stdev[pcCount+2]>0.01){
+        pcCount <- pcCount + 1
+    }
+    print(paste0("pc Max Selected at: ", pcCount))
+    param.pcMax                <- append(param.pcMax,pcCount) 
+}
+#param.pcMax <- findElbowPoint((Elbow$data$stdev)^2)
+```
+
+# Set Merged SO = only SO in environment
+
+```{r}
+MergedSO <- get(SeuratObjList[1])
+```
+
+
+#### Create Cluster names for unintegrated
+
+```{r}
+count <- 1
+countMax <- length(param.resolutions)
+param.resolutionsNames <- c()
+while (count <= countMax){
+    resVal <- paste0(param.cluster_prefix,param.resolutions[count])
+    param.resolutionsNames <- append(param.resolutionsNames, resVal)
+    count <- count + 1
+}
+param.resolutionsNames
+```
+
+#### Find Neighbors
+
+```{r}
+#MergedSO <- FindNeighbors(MergedSO, dims = 1:param.pcMax, reduction = "pca", k.param = 20)
+MergedSO <- FindNeighbors_aKNNO(MergedSO, dims = 1:param.pcMax, reduction = "pca")
+```
+
+#### Find Cluster and Set Idents
+
+```{r}
+#MergedSO <- FindClusters(MergedSO, resolution = param.resolutions, cluster.name = param.resolutionsNames)
+MergedSO <- FindClusters(MergedSO, resolution = param.resolutions, cluster.name = param.resolutionsNames, graph.name="aKNN_O")
+```
+# Generate Sankey Plot - SC
+
+```{r}
+mergedSOmetaRes <- MergedSO@meta.data
+
+if (param.integration == F){
+    mergedSOmetaRes <- mergedSOmetaRes[,grepl(param.cluster_prefix,names(mergedSOmetaRes))]
+    names(mergedSOmetaRes) <- gsub(param.cluster_prefix,"res",names(mergedSOmetaRes))
+}else{
+    pattern <- paste0(param.integrationMethod,"Res")
+    mergedSOmetaRes <- mergedSOmetaRes[,grepl(pattern,names(mergedSOmetaRes))]
+    names(mergedSOmetaRes) <- gsub(pattern,"res",names(mergedSOmetaRes))
+}
+
+df <- mergedSOmetaRes%>%
+    make_long(names(mergedSOmetaRes))
+
+df$next_node <- str_pad(df$next_node,2, pad = "0")
+df$node <- str_pad(df$node,2, pad = "0")
+
+df$reswClust <- paste0(df$x,": ", df$node)
+
+reagg <- df%>%
+    dplyr::group_by(reswClust)%>%                                        # Get counts 
+    tally()
+
+df2 <- merge(df, 
+             reagg, 
+             by.x = 'reswClust', 
+             by.y = 'reswClust', 
+             all.x = TRUE)
+
+pl <- ggplot(df2, aes(x = x,                        
+                      next_x = next_x,                                     
+                      node = node,
+                      next_node = next_node,        
+                      fill = factor(node),
+                      label = paste0(node, " = ", n))) +                 # Creates lable with node and count
+    geom_sankey(flow.alpha = 0.5,                                        # Add opacity
+                node.color = "black",                                    # Node Color
+                show.legend = TRUE) +                                    # This determines if you want your legend to show
+    geom_sankey_label(size = 3,
+                      color = "black", 
+                      fill = "white") +                                  # This specifies the Label format for each node 
+    theme_bw() + 
+    theme(legend.position = 'none') + 
+    theme(axis.title = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks = element_blank(),
+          panel.grid = element_blank()) + 
+    scale_fill_viridis_d(option = "H") + 
+    labs(title = paste0("Sankey: ",param.ProjectName, ifelse(param.integration ==T,paste0(" Integrated (", param.integrationMethod,")"), " Unintegrated")," Dataset")) + 
+    labs(caption =NULL ) + 
+    labs(fill = 'Nodes')
+
+### Save Sankey Plot
+pdf(paste0("./figures/spatial/",param.ProjectName,"SankeyPlot.pdf"), width = 20, height = 15)
+pl
+dev.off()
+
+print(pl)
+MergedSO[["Spatial"]] <- JoinLayers(MergedSO[["Spatial"]])
+```
+
+
+#### Find Clusters and Generate Markers
+
+```{r}
+### Find Clusters and Gerenated Markers
+for(i in 1:length(param.resolutions)){
+    print(paste0("Finding Markers at ",param.resolutions[i]," resolution..."))
+    if(param.integration ==T){
+        Idents(MergedSO) <- paste0(param.integrationMethod,"Res.",param.resolutions[i])
+    }else{
+        Idents(MergedSO) <- paste0(param.cluster_prefix,param.resolutions[i])
+    }
+    assign(paste0("MarkersRes",param.resolutions[i]),FindAllMarkers(MergedSO, only.pos = T, logfc.threshold = 0.3))
+}
+
+MergedSO$unintegratedRes.0.05 <- NULL
+param.resolutions
+# Add in annotation info and output tsv files
+for(j in 1:length(param.resolutions)){
+    print(paste0("Generating Markers tsv at ",param.resolutions[j]," resolution..."))
+    markertemp <- get(paste0("MarkersRes",param.resolutions[j]))
+    markertemp <- markertemp  %>% arrange(cluster, desc(avg_log2FC))
+    markertemp$markercall <- 1
+    markertemp <- markertemp %>%
+        mutate(markercall = ifelse(avg_log2FC >= 1.7 & markertemp$pct.1/markertemp$pct.2 >= 1.7 & -log10(markertemp$p_val_adj) >= 27, 1, 0))
+    assign(paste0("MarkersRes",param.resolutions[j]),markertemp)
+    write.table(get(paste0("MarkersRes",param.resolutions[j])), file = paste0("./markers/spatial/",ifelse(param.integration ==T,paste0(" Integrated_", param.integrationMethod,"_"), "Unintegrated"),"MarkersRes",param.resolutions[j],".tsv"), sep = "\t", quote = F,row.names = F)
+    rm(markertemp)
+}
+```
+
+
+#### Set Default Ident
+
+```{r}
+param.identRes             <-   0.3  # Set resolution eg. 0.3 
+    
+### Set Ident
+if(param.integration ==T ){
+    Idents(MergedSO) <-paste0(param.integrationMethod,"Res.",param.identRes)
+}else{
+    Idents(MergedSO) <-paste0(param.cluster_prefix,param.identRes)
+}
+```
+
+#### Run UMAP and Spatial Dimplot
+
+```{r}
+MergedSO <- RunUMAP(MergedSO, reduction = "pca", dims = 1:param.pcMax)
+pdf(paste0("./figures/spatial/",param.ProjectName,"Spatial_dim_plot","res.",param.identRes,".pdf"), width = 20, height = 15)
+p1 <- DimPlot(MergedSO, reduction = "umap", label = TRUE, pt.size = 3)
+p2 <- SpatialDimPlot(MergedSO, label = TRUE, label.size = 3, alpha = c(0.9,1), pt.size.factor = 2)
+p1 + p2
+dev.off()
+
+p1 + p2
+
+LinkedDimPlot(MergedSO)
+```
+
+
+#### Save RDS
+
+```{r}
+if(param.saveRdsSO == T){
+    if(!dir.exists("RDSObjects")){
+        dir.create("RDSObjects")
+    }
+    if(!dir.exists("RDSObjects/spatial")){
+        dir.create("RDSObjects/spatial")
+    }
+    saveRDS(MergedSO, paste0("./RDSObjects/spatial/",param.ProjectName,"SO.rds"))
+}
+```
+
+
+
+```{r}
+
+browseVignettes("SpatialCPie")
+
+counts <- as.matrix(GetAssayData(get(NameSO), assay = "SCT", layer = "scale.data"))
+
+tissue <- jpeg::readJPEG("data/spatial/tissue_hires_image.jpg")
+
+spots <- GetTissueCoordinates(get(NameSO))
+
+
+runCPie(counts,
+    spotCoordinates = spots,
+    image = tissue,
+    resolutions = c(3, 5),
+    assignmentFunction = function(k, x) cluster::pam(x, k = k)$clustering)
+
+```
+
+
+```{r}
+library(shiny)
+library(magick)
+filename <- "/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/L166-A_hypo/data/spatial/tissue_hires_image.png"
+image_read(filename)
+
+ui <- fluidPage(
+ imageOutput("image")
+)
+server <- function(input, output, session) {
+  
+  output$image <- renderImage({
+    list(src = image_read(filename), contentType = 'image/png')
+  }, deleteFile = FALSE
+  )
+  
+}
+shinyApp(ui, server)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

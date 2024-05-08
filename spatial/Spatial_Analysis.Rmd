@@ -7,7 +7,6 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_knit$set(root.dir = "/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/L166-A_hypo/")
 ```
 
 ```{r}
@@ -32,85 +31,93 @@ library(presto)
 library(DropletUtils)
 library(PCAtools)
 library(aKNNO)
-library(SpatialCPie)
-library(shinyWidgets)
+library(jsonlite)
+library("rstudioapi")  
 
 options(future.globals.maxSize = 1e9)
 options(Seurat.object.assay.version = "v5")
 ```
 
-### Required Parameters
+```{r}
+#####################################################################
+# FILL OUT **** parameters.json **** BEFORE EXECUTION OF THE SCRIPT #
+#####################################################################
+path <- gregexpr(pattern ='/',getSourceEditorContext()$path)
+knitr::opts_knit$set(root.dir = (substr(getSourceEditorContext()$path, 1, as.vector(path[[1]])[-1])))
+
+tryCatch({
+  json_data <- fromJSON("./parameters.json")
+},
+error = function(err) {
+  message(paste0("The file: ", input, " does not seem to exist, or is not in json format."))
+  message("Here's the original error message:\n")
+  message(conditionMessage(err))
+}
+)
+```
+
 
 ```{r}
 # Working Directory
-#    Path to working Directory (leave empty if working in a project)
-param.workingdir        <- ""       
+params.workingdir        <- json_data$working_dir
 
 # 10X Data Input
-#   Comma Seperated List of relative paths to Samples (3 Files: features, barcodes, matrix)
-#   (Paths in double quotes) eg. c("./data/Sample1/","./data/Sample2/"","./data/Sample3/")
-param.SampleDirectores  <- c("./data/filtered")
-param.H5_directory      <- "./data"
+params.H5_directory      <- json_data$H5_directory
+
 #   List of Sample names (same order as paths) (Names in single quotes) 
 #   eg. c('Sample1','Sample2','Sample3')
-param.SampleNames       <- c("limb_L166") 
-#   Number of Recovered cells per sample in same order
-params.CellsRecovered   <- c(4992)
+params.SampleNames       <- json_data$SampleNames
 #   Name of project
-param.ProjectName       <- "pmurawala_001_L166_limb_spatial"        
+params.ProjectName       <- json_data$Project_Name       
 
 # Table To Remove unwanted genes
-param.FeatureFile       <- "./data/custom_features.tsv.gz" # Custom feature file containing: MSTR \t MSTR::AMEX::GENE \t Gene Expression
-param.Orig_Space_features <- "./data/orig_out_features.tsv"  # Original feature file containing:  MSTR \t Annotation \t Gene Expression
-param.ID2Gene           <- "./ref/AxolotlBestMatchwCellTypeStrict.tsv"
-param.gene_subset       <- F
+params.FeatureFile       <- json_data$FeatureFile # Custom feature file containing: MSTR \t MSTR::AMEX::GENE \t Gene Expression
+params.Orig_Space_features <- json_data$OrigFeatFile  # Original feature file containing:  MSTR \t Annotation \t Gene Expression
+params.ID2Gene           <- json_data$ID2GeneFile
+params.gene_subset       <- json_data$SubsetGenes
+
+# Subsetting params
+params.subset_qc_metrics        <- json_data$SubsetQCmetrics
+params.ncount_subset_quantile   <- json_data$ncountQuantile
+params.nfeature_subset_quantile <- json_data$nfeatureQuantile
+params.maxMitoPct               <- json_data$maxMitoPct
 
 # Gene Lists for Cell Cycle Scoring and MT
 #   Currently set to search for pattern. change to a list "c()" for a custom list
-param.mtGeneList        <- c()
-param.g2mGeneList       <- cc.genes.updated.2019$g2m.genes
-param.sGeneList         <- cc.genes.updated.2019$s.genes
+params.organism_ls       <- c("MOUSE", "HUMAN")
+params.organism          <- toupper(json_data$Organism)
+params.mtGeneList        <- json_data$Mito_Genes
 
-# Seurat Object Creation
-#   Which column of the feature file to use for gene names (generally 2 unless annotations
-#   are not great)
-param.geneColumn        <- 2 
-#   Min number cells per feature (Keep Same)
-param.minCells          <- 3
-#   Min number of features per cell (Keep Same)
-param.minFeatures       <- 200
 
 # Seurat Scaling
 #    in vars to regress, it should be metadata sections to be regressed or genes i.e. eGFP
-params.vars2Regress     <- c("nCount_Spatial","nFeature_Spatial","percent.mt")
+params.vars2Regress     <- json_data$Vars2Regress
 
 
-param.cluster_prefix <- "SCT_aKNNO_Res."
+params.cluster_prefix <- json_data$ClusterPrefix
 
 # Post Scale Options
 #    True of False: make Loupe File
-param.makeLoupe            <- T   
+params.makeLoupe            <- json_data$MakeLoupe
 #    List of Resolutions in ascending order ex. c(0.05,0.1,0.3,0.5,0.7,0.9)
-param.resolutions          <- c(0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.2,1.5) 
+params.resolutions          <- json_data$Resolutions 
 #    True of False: Run integration
-param.integration          <- F   
-#    If param.integration set to true, decide which integration method to use. 
+params.integration          <- json_data$Integrating
+#    If params.integration set to true, decide which integration method to use. 
 #    (options: CCA, RPCA, Harmony, FastMNN) scVIIntegration needs additional setup -- conda-env
-param.integrationMethod   <- "Harmony"                          
-
-
+params.integrationMethod   <- json_data$IntegrationMethod                          
 
 # Save Final Merged RDS file at end of Script (Good for keeping Progressive Versions of
 # Seurat object)
-param.saveRdsSO         <- T       
+params.saveRdsSO         <- json_data$SaveRDS
 
 ```
 
 #### Set working directory if not in a project
 
 ```{r}
-if(param.workingdir != ""){
-    setwd(param.workingdir)
+if(params.workingdir != ""){
+    setwd(params.workingdir)
 }
 ```
 
@@ -118,6 +125,8 @@ if(param.workingdir != ""){
 #### Make output directories
 
 ```{r}
+setwd(params.workingdir)
+
 if(!dir.exists("figures/")){
     dir.create("figures/")
 }
@@ -129,6 +138,8 @@ if(!dir.exists("markers/")){
 #### Make output directories
 
 ```{r}
+setwd(params.workingdir)
+
 if(!dir.exists("figures/spatial/")){
     dir.create("figures/spatial")
 }
@@ -138,10 +149,14 @@ if(!dir.exists("markers/spatial")){
 
 ```
 
-#### Removal of unwanted genes - Not used for mouse
+#### Removal of unwanted genes
 
 ```{r}
-ID2Gene <- read.delim(param.ID2Gene,sep = "\t" ,header = F)
+setwd(params.workingdir)
+
+if (params.organism == "AXOLOTL"){
+
+ID2Gene <- read.delim(params.ID2Gene,sep = "\t" ,header = F)
 rownames(ID2Gene) = ID2Gene[,1]
 
 unannotated.transcripts = rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("PEG10",ID2Gene$V2)] ]
@@ -159,32 +174,38 @@ rp.genes = unique(c(rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("^RPS",ID2
 
 ID2Gene = ID2Gene[!rownames(ID2Gene) %in% rp.genes,]
 
-Features <- read.delim(param.FeatureFile,sep = "\t",header = F)
+Features <- read.delim(params.FeatureFile,sep = "\t",header = F)
 Features[,2][which(duplicated(Features[,2]))]
 rownames(Features) = Features[,2]
 
 Features <- Features[Features$V1 %in% rownames(ID2Gene),]
+
+}
 ```
 
 #### Create Seurat from Spatial Experiment
 
 ```{r}
+setwd(params.workingdir)
 
-NameSO <- paste0("SO_",param.SampleNames[1], "_SPAT")
-assign(NameSO, Load10X_Spatial(data.dir = param.H5_directory, filter.matrix = F))
+NameSO <- paste0("SO_",params.SampleNames[1], "_SPAT")
+assign(NameSO, Load10X_Spatial(data.dir = params.H5_directory, filter.matrix = F))
 
 ```
 
 # Feature Name Editing of Seurat Object
 
 ```{r}
+setwd(params.workingdir)
+
+if (params.organism == "AXOLOTL"){
 SO <- get(NameSO)
 
 # Custom Feature File
-features <- read.delim(param.FeatureFile,sep = "\t",header = F)
+features <- read.delim(params.FeatureFile,sep = "\t",header = F)
 
 # Original Spaceranger feature file output
-inFeatures <- read.delim(param.Orig_Space_features, sep = "\t", header = F)
+inFeatures <- read.delim(params.Orig_Space_features, sep = "\t", header = F)
 
 inFeatures$ordering <- row.names(inFeatures)
 
@@ -198,9 +219,10 @@ SO.rn <- RenameGenesSeurat(SO,newnames = outFeatures$V2.x, assay = "Spatial")
 
 assign(NameSO, SO.rn)
 
-if (param.gene_subset){
+if (params.gene_subset){
   assign(NameSO, get(NameSO)[which(rownames(get(NameSO)) %in% rownames(Features)),])
 } else {
+}
 }
 ```
 # Removing "_" in gene names 
@@ -228,10 +250,6 @@ assign(NameSO, SO.rn)
 
 ```
 
-
-
-
-
 # Validate SO 
 
 ```{r}
@@ -241,16 +259,33 @@ print(get(NameSO))
 # Calculate MT pct - Spatial
 
 ```{r}
-mito.genes <- row.names(get(NameSO))[grepl(pattern = "^mt-", x = row.names(get(NameSO)))]
-#mito.contig <- c(rownames(ID2Gene)[ID2Gene$V2 %in% mito.genes ] , rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("^COX",ID2Gene$V2)]] )
-#mito.contig <- Features[Features$V1 %in% mito.contig,]
-#mito.contig$V2 <- gsub("_","-",mito.contig$V2)
-
-
-calcMT <- function(SO) {
+if (params.organism == "MOUSE"){
+  mito.genes <- row.names(get(NameSO))[grepl(pattern = "^mt-", x = row.names(get(NameSO)))]
+  
+  calcMT <- function(SO) {
     mito.contig.sampSpec <- intersect(mito.genes , rownames(SO))
     SO[["percent.mt"]] <- PercentageFeatureSet(SO, features = mito.contig.sampSpec)
     SO
+}
+}else if (params.organism == "HUMAN") {
+  mito.genes <- row.names(get(NameSO))[grepl(pattern = "^MT-", x = row.names(get(NameSO)))]
+  
+  calcMT <- function(SO) {
+    mito.contig.sampSpec <- intersect(mito.genes , rownames(SO))
+    SO[["percent.mt"]] <- PercentageFeatureSet(SO, features = mito.contig.sampSpec)
+    SO
+}
+}else if (params.organism == "AXOLOTL") {
+  mito.genes <- params.mtGeneList
+  mito.contig <- c(rownames(ID2Gene)[ID2Gene$V2 %in% mito.genes ], rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("^COX",ID2Gene$V2)]] )
+  mito.contig <- Features[Features$V1 %in% mito.contig,]
+  mito.contig$V2 <- gsub("_","-",mito.contig$V2)
+  
+  calcMT <- function(SO) {
+    mito.contig.sampSpec <- intersect(mito.contig$V2 , rownames(SO))
+    SO[["percent.mt"]] <- PercentageFeatureSet(SO, features = mito.contig.sampSpec)
+    SO
+}
 }
 
 
@@ -274,33 +309,25 @@ for (samp in SeuratObjList){
     assign(samp, SCTransform(get(samp), return.only.var.genes = FALSE, assay = 'Spatial', vars.to.regress = params.vars2Regress))
 }
 
-
-```
-
-#### Find Variable Features
-
-```{r}
-#for (samp in SeuratObjList){
-    #print(paste0("Finding variable features on sample: ", samp))
-    #assign(samp, FindVariableFeatures(get(samp)))
-#}
 ```
 
 # Plot QC metrics - Spatial
 
 ```{r}
+setwd(params.workingdir)
+
 samp <- SeuratObjList[1]
 
-plot1 <- VlnPlot(get(NameSO), features = "nCount_Spatial", pt.size = -1) + NoLegend() + xlab(param.SampleNames) + theme(axis.ticks.x = element_blank(), axis.text.x = element_blank())
-plot2 <- VlnPlot(get(NameSO), features = "nFeature_Spatial", pt.size = -1) + NoLegend() + xlab(param.SampleNames) + theme(axis.ticks.x = element_blank(), axis.text.x = element_blank())
-plot3 <- VlnPlot(get(NameSO), features = "percent.mt", pt.size = -1) + NoLegend() + xlab(param.SampleNames) + theme(axis.ticks.x = element_blank(), axis.text.x = element_blank())
+plot1 <- VlnPlot(get(NameSO), features = "nCount_Spatial", pt.size = -1) + NoLegend() + xlab(params.SampleNames) + theme(axis.ticks.x = element_blank(), axis.text.x = element_blank())
+plot2 <- VlnPlot(get(NameSO), features = "nFeature_Spatial", pt.size = -1) + NoLegend() + xlab(params.SampleNames) + theme(axis.ticks.x = element_blank(), axis.text.x = element_blank())
+plot3 <- VlnPlot(get(NameSO), features = "percent.mt", pt.size = -1) + NoLegend() + xlab(params.SampleNames) + theme(axis.ticks.x = element_blank(), axis.text.x = element_blank())
 plot4 <- SpatialFeaturePlot(get(NameSO), features = "nCount_Spatial", pt.size.factor = 2.0) + theme(legend.position = "right")
 plot5 <- SpatialFeaturePlot(get(NameSO), features = "nFeature_Spatial", pt.size.factor = 2.0) + theme(legend.position = "right")
 plot6 <- SpatialFeaturePlot(get(NameSO), features = "percent.mt", pt.size.factor = 2.0) + theme(legend.position = "right")
 plot7 <- FeatureScatter(get(samp), feature1 = "nCount_Spatial", feature2 = "percent.mt", shuffle = T) + theme(legend.title = element_blank(), legend.position = 'none')
 plot8 <- FeatureScatter(get(samp), feature1 = "nCount_Spatial", feature2 = "nFeature_Spatial", shuffle = T) + theme(legend.title = element_blank(), legend.position = 'none')
 
-pdf(file = paste0('figures/spatial/',param.ProjectName,"_",samp,'_preFilterQC_Spatial.pdf'), title = paste0(param.ProjectName," ",samp,' PreFilter QC'), width = 11, height = 8.5)
+pdf(file = paste0('figures/spatial/',params.ProjectName,"_",samp,'_preFilterQC_Spatial.pdf'), title = paste0(params.ProjectName," ",samp,' PreFilter QC'), width = 11, height = 8.5)
   wrap_plots(plot7, plot8)
   wrap_plots(plot1, plot2, plot3)
   print(plot4)
@@ -313,46 +340,38 @@ wrap_plots(plot1, plot2, plot3)
   print(plot4)
   print(plot5)
   print(plot6)
+  
 
 ```
 
 
 #### Calculate Subsetting Bounds and Subset
 
-##### Calculate Values
-
-Be sure to validate these values
-
-```{r}
-for (samp in SeuratObjList){
-    print(paste0("Calcualting subset bounds on sample: ", samp))
-    param.minNCount         <- quantile(get(samp)$nCount_Spatial, probs = 0.80)[["80%"]]
-    param.minNFeature         <- quantile(get(samp)$nFeature_Spatial, probs = 0.80)[["80%"]]
-    param.maxMitoPct        <- 10
-
-    print(paste0("     Minimum N Count set point:        ", param.minNCount))
-    print(paste0("     Minimum N Feature set point:      ", param.minNFeature))
-    print(paste0("     Maximum Mito Percent set point:   ", param.maxMitoPct))
-    
-}
-```
-
 ##### Subset Seurat objects - SKIP IF SPATIAL (temporarily)
 
 ```{r}
+if (params.subset_qc_metrics){
+
+for (samp in SeuratObjList){
+  print(paste0("Calcualting subset bounds on sample: ", samp))
+  params.minNCount         <- quantile(get(samp)$nCount_Spatial, probs = params.ncount_subset_quantile)[[paste0((params.ncount_subset_quantile *100), "%")]]
+  params.minNFeature         <- quantile(get(samp)$nFeature_Spatial, probs = params.nfeature_subset_quantile)[[paste0((params.nfeature_subset_quantile *100), "%")]]
+  
+
+  print(paste0("     Minimum N Count set point:        ", params.minNCount))
+  print(paste0("     Minimum N Feature set point:      ", params.minNFeature))
+  print(paste0("     Maximum Mito Percent set point:   ", params.maxMitoPct))
+  
+}
+
 for (samp in SeuratObjList){
     print(paste0("Applying subset bounds on sample: ", samp))
-    param.minNCount         <- quantile(get(samp)$nCount_Spatial, probs = 0.30)[["30%"]]
-    param.minNFeature         <- quantile(get(samp)$nFeature_Spatial, probs = 0.30)[["30%"]]
-    param.maxMitoPct         <- 10
+    params.minNCount         <- quantile(get(samp)$nCount_Spatial, probs = params.ncount_subset_quantile)[[paste0((params.ncount_subset_quantile *100), "%")]]
+    params.minNFeature         <- quantile(get(samp)$nFeature_Spatial, probs = params.nfeature_subset_quantile)[[paste0((params.nfeature_subset_quantile *100), "%")]]
 
-    assign(samp,subset(get(samp), subset = nFeature_Spatial > param.minNFeature & nCount_Spatial > param.minNCount))
+    assign(samp,subset(get(samp), subset = nFeature_Spatial > params.minNFeature & nCount_Spatial > params.minNCount & percent.mt < params.maxMitoPct))
 }
-```
 
-##### Save and Show - SKIP IF NO SUBSET WAS ENFORCED 
-
-```{r}
 for (samp in SeuratObjList){
     print(paste0("Building PrescaleQC plots on sample: ", samp))
     plot1 <- FeatureScatter(get(samp), feature1 = "nCount_Spatial", feature2 = "percent.mt", shuffle = T)
@@ -360,7 +379,7 @@ for (samp in SeuratObjList){
     vplot1 <- VlnPlot(get(samp), features = c("nCount_Spatial","nFeature_Spatial","percent.mt"),pt.size = -1)
 
 
-    pdf(file = paste0('figures/spatial/',param.ProjectName,"_",samp,'_postFilterQC.pdf'), title = paste0(param.ProjectName," ",samp,' PostFilter QC'), width = 11, height = 8.5)
+    pdf(file = paste0('figures/spatial/',params.ProjectName,"_",samp,'_postFilterQC.pdf'), title = paste0(params.ProjectName," ",samp,' PostFilter QC'), width = 11, height = 8.5)
     print(plot1 + plot2)
     print(vplot1)
     dev.off()
@@ -368,59 +387,11 @@ for (samp in SeuratObjList){
     print(plot1 + plot2)
     print(vplot1)
 }
-```
 
-#### Identify Cell Cycle Genes
-
-```{r}
-#g2m.genes <- param.g2mGeneList
-#g2m.genes <- rownames(ID2Gene)[ID2Gene$V2 %in% g2m.genes ] 
-#g2m.genes <- Features[Features$V1 %in% g2m.genes,]
-#g2m.genes$V2 <- gsub("_","-",g2m.genes$V2)
-#g2m.genes <- intersect(g2m.genes$V2 , rownames(SO_kidney_meta))
-
-
-#s.genes <- param.sGeneList
-#s.genes <- rownames(ID2Gene)[ID2Gene$V2 %in% s.genes ] 
-#s.genes <- Features[Features$V1 %in% s.genes,]
-#s.genes$V2 <- gsub("_","-",s.genes$V2)
-#s.genes <- intersect(s.genes$V2 , rownames(SO_kidney_meta))
-
+}
 
 ```
 
-#### Calculate Cell Cycle Scores
-
-```{r}
-#for (samp in SeuratObjList){
-    #print(paste0("Calculating Cell Cycle Score on Sample: ", samp))
-    #g2m.genes.sampSpec <- intersect(g2m.genes$V2 , rownames(get(samp)))
-    #s.genes.sampSpec <- intersect(s.genes$V2 , rownames(get(samp)))
-    #assign(samp, CellCycleScoring(get(samp), s.features = s.genes.sampSpec, g2m.features = g2m.genes.sampSpec, set.ident = TRUE))
-#}
-```
-
-#### Scale Data
-
-Description:
-
--   Shifts the expression of each gene, so that the mean expression across cells is 0
-
--   Scales the expression of each gene, so that the variance across cells is 1
-
--   This step gives equal weight in downstream analyses, so that highly-expressed genes do not dominate
-
--   The results of this are stored in pbmc[["RNA"]]\$scale.data
-
-> > in vars to regress, it should be metadata sections to be regressed or genes i.e. eGFP
-
-```{r}
-#for (samp in SeuratObjList){
-    #print(paste0("Scaling Data on Sample: ", samp))
-    #all.genes <- rownames(get(samp))
-    #assign(samp,ScaleData(get(samp), features = all.genes ,vars.to.regress = params.vars2Regress))
-#}
-```
 
 #### Run PCA on individual samples
 
@@ -438,11 +409,13 @@ for (samp in SeuratObjList){
 Validate PCs selected
 
 ```{r}
-param.pcMax <- c()
+setwd(params.workingdir)
+
+params.pcMax <- c()
 for (samp in SeuratObjList){
     print(paste0("Generating Elbow Plot for Sample: ", samp))
     Elbow <- ElbowPlot(get(samp), ndims = 100, reduction = "pca")
-    pdf(paste0("./figures/spatial/",param.ProjectName,"_",samp,"_ElbowPlot.pdf"), 
+    pdf(paste0("./figures/spatial/",params.ProjectName,"_",samp,"_ElbowPlot.pdf"), 
         width = 20, height = 15)
     print(Elbow)
     dev.off()
@@ -452,9 +425,9 @@ for (samp in SeuratObjList){
         pcCount <- pcCount + 1
     }
     print(paste0("pc Max Selected at: ", pcCount))
-    param.pcMax                <- append(param.pcMax,pcCount) 
+    params.pcMax                <- append(params.pcMax,pcCount) 
 }
-#param.pcMax <- findElbowPoint((Elbow$data$stdev)^2)
+
 ```
 
 # Set Merged SO = only SO in environment
@@ -468,39 +441,39 @@ MergedSO <- get(SeuratObjList[1])
 
 ```{r}
 count <- 1
-countMax <- length(param.resolutions)
-param.resolutionsNames <- c()
+countMax <- length(params.resolutions)
+params.resolutionsNames <- c()
 while (count <= countMax){
-    resVal <- paste0(param.cluster_prefix,param.resolutions[count])
-    param.resolutionsNames <- append(param.resolutionsNames, resVal)
+    resVal <- paste0(params.cluster_prefix,params.resolutions[count])
+    params.resolutionsNames <- append(params.resolutionsNames, resVal)
     count <- count + 1
 }
-param.resolutionsNames
+params.resolutionsNames
 ```
 
 #### Find Neighbors
 
 ```{r}
-#MergedSO <- FindNeighbors(MergedSO, dims = 1:param.pcMax, reduction = "pca", k.param = 20)
-MergedSO <- FindNeighbors_aKNNO(MergedSO, dims = 1:param.pcMax, reduction = "pca")
+MergedSO <- FindNeighbors_aKNNO(MergedSO, dims = 1:params.pcMax, reduction = "pca")
 ```
 
 #### Find Cluster and Set Idents
 
 ```{r}
-#MergedSO <- FindClusters(MergedSO, resolution = param.resolutions, cluster.name = param.resolutionsNames)
-MergedSO <- FindClusters(MergedSO, resolution = param.resolutions, cluster.name = param.resolutionsNames, graph.name="aKNN_O")
+MergedSO <- FindClusters(MergedSO, resolution = params.resolutions, cluster.name = params.resolutionsNames, graph.name="aKNN_O")
 ```
 # Generate Sankey Plot - SC
 
 ```{r}
+setwd(params.workingdir)
+
 mergedSOmetaRes <- MergedSO@meta.data
 
-if (param.integration == F){
-    mergedSOmetaRes <- mergedSOmetaRes[,grepl(param.cluster_prefix,names(mergedSOmetaRes))]
-    names(mergedSOmetaRes) <- gsub(param.cluster_prefix,"res",names(mergedSOmetaRes))
+if (params.integration == F){
+    mergedSOmetaRes <- mergedSOmetaRes[,grepl(params.cluster_prefix,names(mergedSOmetaRes))]
+    names(mergedSOmetaRes) <- gsub(params.cluster_prefix,"res",names(mergedSOmetaRes))
 }else{
-    pattern <- paste0(param.integrationMethod,"Res")
+    pattern <- paste0(params.integrationMethod,"Res")
     mergedSOmetaRes <- mergedSOmetaRes[,grepl(pattern,names(mergedSOmetaRes))]
     names(mergedSOmetaRes) <- gsub(pattern,"res",names(mergedSOmetaRes))
 }
@@ -542,12 +515,12 @@ pl <- ggplot(df2, aes(x = x,
           axis.ticks = element_blank(),
           panel.grid = element_blank()) + 
     scale_fill_viridis_d(option = "H") + 
-    labs(title = paste0("Sankey: ",param.ProjectName, ifelse(param.integration ==T,paste0(" Integrated (", param.integrationMethod,")"), " Unintegrated")," Dataset")) + 
+    labs(title = paste0("Sankey: ",params.ProjectName, ifelse(params.integration ==T,paste0(" Integrated (", params.integrationMethod,")"), " Unintegrated")," Dataset")) + 
     labs(caption =NULL ) + 
     labs(fill = 'Nodes')
 
 ### Save Sankey Plot
-pdf(paste0("./figures/spatial/",param.ProjectName,"SankeyPlot.pdf"), width = 20, height = 15)
+pdf(paste0("./figures/spatial/",params.ProjectName,"SankeyPlot.pdf"), width = 20, height = 15)
 pl
 dev.off()
 
@@ -559,29 +532,34 @@ MergedSO[["Spatial"]] <- JoinLayers(MergedSO[["Spatial"]])
 #### Find Clusters and Generate Markers
 
 ```{r}
+setwd(params.workingdir)
+
 ### Find Clusters and Gerenated Markers
-for(i in 1:length(param.resolutions)){
-    print(paste0("Finding Markers at ",param.resolutions[i]," resolution..."))
-    if(param.integration ==T){
-        Idents(MergedSO) <- paste0(param.integrationMethod,"Res.",param.resolutions[i])
+for (i in 1:length(params.resolutions)){
+    print(paste0("Finding Markers at ",params.resolutions[i]," resolution..."))
+    if(params.integration ==T){
+        Idents(MergedSO) <- paste0(params.integrationMethod,"Res.",params.resolutions[i])
     }else{
-        Idents(MergedSO) <- paste0(param.cluster_prefix,param.resolutions[i])
+        Idents(MergedSO) <- paste0(params.cluster_prefix,params.resolutions[i])
     }
-    assign(paste0("MarkersRes",param.resolutions[i]),FindAllMarkers(MergedSO, only.pos = T, logfc.threshold = 0.3))
+    assign(paste0("MarkersRes",params.resolutions[i]),FindAllMarkers(MergedSO, only.pos = T, logfc.threshold = 0.3))
 }
 
 MergedSO$unintegratedRes.0.05 <- NULL
-param.resolutions
+params.resolutions
 # Add in annotation info and output tsv files
-for(j in 1:length(param.resolutions)){
-    print(paste0("Generating Markers tsv at ",param.resolutions[j]," resolution..."))
-    markertemp <- get(paste0("MarkersRes",param.resolutions[j]))
+for (j in 1:length(params.resolutions)){
+    if (length(levels(factor(get(paste0("MarkersRes", params.resolutions[j]))$cluster))) <= 1) {
+      next
+    }
+    print(paste0("Generating Markers tsv at ",params.resolutions[j]," resolution..."))
+    markertemp <- get(paste0("MarkersRes",params.resolutions[j]))
     markertemp <- markertemp  %>% arrange(cluster, desc(avg_log2FC))
     markertemp$markercall <- 1
     markertemp <- markertemp %>%
         mutate(markercall = ifelse(avg_log2FC >= 1.7 & markertemp$pct.1/markertemp$pct.2 >= 1.7 & -log10(markertemp$p_val_adj) >= 27, 1, 0))
-    assign(paste0("MarkersRes",param.resolutions[j]),markertemp)
-    write.table(get(paste0("MarkersRes",param.resolutions[j])), file = paste0("./markers/spatial/",ifelse(param.integration ==T,paste0(" Integrated_", param.integrationMethod,"_"), "Unintegrated"),"MarkersRes",param.resolutions[j],".tsv"), sep = "\t", quote = F,row.names = F)
+    assign(paste0("MarkersRes",params.resolutions[j]),markertemp)
+    write.table(get(paste0("MarkersRes",params.resolutions[j])), file = paste0("./markers/spatial/",ifelse(params.integration ==T,paste0(" Integrated_", params.integrationMethod,"_"), "Unintegrated"),"MarkersRes",params.resolutions[j],".tsv"), sep = "\t", quote = F,row.names = F)
     rm(markertemp)
 }
 ```
@@ -590,21 +568,23 @@ for(j in 1:length(param.resolutions)){
 #### Set Default Ident
 
 ```{r}
-param.identRes             <-   0.3  # Set resolution eg. 0.3 
+params.identRes             <-   0.3  # Set resolution eg. 0.3 
     
 ### Set Ident
-if(param.integration ==T ){
-    Idents(MergedSO) <-paste0(param.integrationMethod,"Res.",param.identRes)
+if(params.integration ==T ){
+    Idents(MergedSO) <-paste0(params.integrationMethod,"Res.",params.identRes)
 }else{
-    Idents(MergedSO) <-paste0(param.cluster_prefix,param.identRes)
+    Idents(MergedSO) <-paste0(params.cluster_prefix,params.identRes)
 }
 ```
 
 #### Run UMAP and Spatial Dimplot
 
 ```{r}
-MergedSO <- RunUMAP(MergedSO, reduction = "pca", dims = 1:param.pcMax)
-pdf(paste0("./figures/spatial/",param.ProjectName,"Spatial_dim_plot","res.",param.identRes,".pdf"), width = 20, height = 15)
+setwd(params.workingdir)
+
+MergedSO <- RunUMAP(MergedSO, reduction = "pca", dims = 1:params.pcMax)
+pdf(paste0("./figures/spatial/",params.ProjectName,"Spatial_dim_plot","res.",params.identRes,".pdf"), width = 20, height = 15)
 p1 <- DimPlot(MergedSO, reduction = "umap", label = TRUE, pt.size = 3)
 p2 <- SpatialDimPlot(MergedSO, label = TRUE, label.size = 3, alpha = c(0.9,1), pt.size.factor = 2)
 p1 + p2
@@ -612,65 +592,27 @@ dev.off()
 
 p1 + p2
 
-LinkedDimPlot(MergedSO)
 ```
 
 
 #### Save RDS
 
 ```{r}
-if(param.saveRdsSO == T){
+setwd(params.workingdir)
+
+if(params.saveRdsSO == T){
     if(!dir.exists("RDSObjects")){
         dir.create("RDSObjects")
     }
     if(!dir.exists("RDSObjects/spatial")){
         dir.create("RDSObjects/spatial")
     }
-    saveRDS(MergedSO, paste0("./RDSObjects/spatial/",param.ProjectName,"SO.rds"))
+    saveRDS(MergedSO, paste0("./RDSObjects/spatial/",params.ProjectName,"SO.rds"))
 }
 ```
 
 
 
-```{r}
-
-browseVignettes("SpatialCPie")
-
-counts <- as.matrix(GetAssayData(get(NameSO), assay = "SCT", layer = "scale.data"))
-
-tissue <- jpeg::readJPEG("data/spatial/tissue_hires_image.jpg")
-
-spots <- GetTissueCoordinates(get(NameSO))
-
-
-runCPie(counts,
-    spotCoordinates = spots,
-    image = tissue,
-    resolutions = c(3, 5),
-    assignmentFunction = function(k, x) cluster::pam(x, k = k)$clustering)
-
-```
-
-
-```{r}
-library(shiny)
-library(magick)
-filename <- "/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/L166-A_hypo/data/spatial/tissue_hires_image.png"
-image_read(filename)
-
-ui <- fluidPage(
- imageOutput("image")
-)
-server <- function(input, output, session) {
-  
-  output$image <- renderImage({
-    list(src = image_read(filename), contentType = 'image/png')
-  }, deleteFile = FALSE
-  )
-  
-}
-shinyApp(ui, server)
-```
 
 
 

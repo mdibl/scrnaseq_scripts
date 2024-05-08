@@ -1,9 +1,11 @@
 {
-	"working_dir"   : "/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/test/",
+	"working_dirs"  : ["/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/Metamorphic",
+                            "/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/Neotenic"],
+        "out_dir"       : "/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/Neo_Meta",
         "H5_directory"  : "./data",
         "H5_Name"       : "filtered_feature_bc_matrix.h5",
-        "SampleNames"   : ["test"],
-        "Project_Name"  : "test_001",
+        "SampleNames"   : ["limb_metamorphic", "limb_neotenic"],
+        "Project_Name"  : "pmurawala_009",
        
         "SubsetGenes"   : false,
 	"FeatureFile"   : "./data/custom_features.tsv.gz",
@@ -24,7 +26,7 @@
         "Integrating"       : false,
         "IntegrationMethod" : "",
         
-        "MakeLoupe"     : true,
+        "MakeLoupe"     : false,
         "SaveRDS"       : true
 
 }

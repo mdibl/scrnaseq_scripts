@@ -32,7 +32,8 @@ library(DropletUtils)
 library(PCAtools)
 library(aKNNO)
 library(jsonlite)
-library("rstudioapi") 
+library("rstudioapi")
+library(stringi)
 
 options(future.globals.maxSize = 1e9)
 options(Seurat.object.assay.version = "v5")
@@ -60,7 +61,10 @@ error = function(err) {
 
 ```{r}
 # Working Directory
-params.workingdir        <- json_data$working_dir
+params.workingdirs        <- json_data$working_dir
+
+# Output files directory
+params.outdir            <- json_data$out_dir
 
 # 10X Data Input
 params.H5_directory      <- json_data$H5_directory
@@ -118,15 +122,15 @@ params.saveRdsSO         <- json_data$SaveRDS
 #### Set working directory if not in a project
 
 ```{r}
-if(params.workingdir != ""){
-    setwd(params.workingdir)
+if(params.workingdirs[1] != ""){
+    setwd(params.workingdirs[1])
 }
 ```
 
 #### Make output directories
 
 ```{r}
-setwd(params.workingdir)
+setwd(params.outdir)
 
 if(!dir.exists("figures")){
     dir.create("figures")
@@ -139,7 +143,7 @@ if(!dir.exists("markers")){
 #### Make output directories
 
 ```{r}
-setwd(params.workingdir)
+setwd(params.outdir)
 
 if(!dir.exists("figures/single_cell")){
     dir.create("figures/single_cell")
@@ -152,7 +156,7 @@ if(!dir.exists("markers/single_cell")){
 #### Removal of unwanted genes
 
 ```{r}
-setwd(params.workingdir)
+setwd(params.workingdirs[1])
 
 if (params.organism == "AXOLOTL"){
 
@@ -188,11 +192,12 @@ Features <- Features[Features$V1 %in% rownames(ID2Gene),]
 #### Read in 10X Filtered Directories 
 
 ```{r}
-setwd(params.workingdir)
+setwd(params.workingdirs)
 
 count <- 1
 Vector10X <- c()
-
+for (dir in params.workingdirs){
+setwd(dir)
 Name10X <- paste0(params.SampleNames[count],"_10X")
 tryCatch({
   assign(Name10X, Read10X_h5(filename = paste0(params.H5_directory, params.h5_name), use.names = TRUE, unique.features = TRUE))
@@ -205,6 +210,7 @@ tryCatch({
 )
 Vector10X <- append(Vector10X, Name10X)
 count <- count + 1
+}
 
 ```
 
@@ -221,11 +227,16 @@ for (samp in Vector10X){
 }
 ```
 
+
+
 # Removing unwanted genes - GENE SUBSETTING or GENE Name Joining
 
 ```{r}
-setwd(params.workingdir)
+setwd(params.workingdirs[1])
 
+for (samp in SeuratObjList){
+NameSO <- samp
+  
 if (params.organism == "AXOLOTL"){
 SO <- get(NameSO)
 
@@ -252,13 +263,16 @@ if (params.gene_subset){
 } else {
 }
 }
+}
 ```
 
 
 # Editing out "_" characters in gene names 
 
 ```{r}
-new_features <- rownames(get(NameSO))
+for (SO in SeuratObjList){
+NameSO <- SO
+new_features <- rownames(get(SO))
 
 for (i in 1:length(new_features)) {
   
@@ -277,6 +291,8 @@ for (i in 1:length(new_features)) {
 
 SO.rn <- RenameGenesSeurat(get(NameSO),newnames = new_features, assay = "RNA")
 assign(NameSO, SO.rn)
+
+}
 ```
 
 
@@ -302,6 +318,9 @@ rm(list = Vector10X)
 #### Select Mitochondrial Genes
 
 ```{r}
+for (samp in SeuratObjList){
+NameSO <- SeuratObjList[1]
+  
 if (params.organism == "MOUSE"){
   mito.genes <- row.names(get(NameSO))[grepl(pattern = "^mt-", x = row.names(get(NameSO)))]
   
@@ -334,7 +353,7 @@ if (params.organism == "MOUSE"){
 
 print(paste0("Calculating MT% on Sample: ", NameSO))
 assign(NameSO, calcMT(get(NameSO)))
-
+}
 ```
 
 #### Normalize Data
@@ -345,16 +364,31 @@ for (samp in SeuratObjList){
     assign(samp, SCTransform(get(samp), return.only.var.genes = FALSE, assay = 'RNA', vars.to.regress = params.vars2Regress))
 }
 
+if (length(SeuratObjList) > 1 ){
+count <- 2
+countMax <- length(SeuratObjList)
+SOlist2up <- c()
+while (count <= countMax){
+    SOlist2up <- append(SOlist2up, get(SeuratObjList[count]))
+    count <- count + 1
+}
 
+MergedSO <- merge(get(SeuratObjList[1]), y= SOlist2up, add.cell.ids = params.SampleNames, project = params.ProjectName
+)
+MergedSO
+} else {
+  MergedSO <- get(SeuratObjList[1])
+  MergedSO
+}
 ```
 
 #Plot QC metrics
 
 ```{r}
-setwd(params.workingdir)
+setwd(params.outdir)
 
 for (samp in SeuratObjList){
-    samp = SeuratObjList[1]
+    
     print(paste0("Building PrescaleQC plots on sample: ", samp))
     plot1 <- FeatureScatter(get(samp), feature1 = "nCount_RNA", feature2 = "percent.mt", shuffle = T)
     plot2 <- FeatureScatter(get(samp), feature1 = "nCount_RNA", feature2 = "nFeature_RNA", shuffle = T)
@@ -426,11 +460,11 @@ for (samp in SeuratObjList){
 #### Run PCA on individual samples
 
 ```{r}
-for (samp in SeuratObjList){
-    print(paste0("Running PCA on Sample: ", samp))
-    all.genes <- rownames(get(samp))
-    assign(samp,RunPCA(get(samp), assay = "SCT",features = all.genes ,npcs = 100))
-}
+
+print("Running PCA on Sample ")
+all.genes <- rownames(MergedSO)
+MergedSO <- RunPCA(MergedSO, assay = "SCT",features = all.genes ,npcs = 100)
+
 ```
 
 #### Generate Elbow Plots and Calculate PCs to use
@@ -438,33 +472,26 @@ for (samp in SeuratObjList){
 Validate PCs selected
 
 ```{r}
-setwd(params.workingdir)
+setwd(params.outdir)
 
 params.pcMax <- c()
-for (samp in SeuratObjList){
-    print(paste0("Generating Elbow Plot for Sample: ", samp))
-    Elbow <- ElbowPlot(get(samp), ndims = 100, reduction = "pca")
-    pdf(paste0("./figures/single_cell/",params.ProjectName,"_",samp,"_ElbowPlot.pdf"), 
-        width = 20, height = 15)
-    print(Elbow)
-    dev.off()
-    print(Elbow)
-    pcCount <- 1
-    while(Elbow$data$stdev[pcCount]-Elbow$data$stdev[pcCount+1]>0.01 | Elbow$data$stdev[pcCount+1]-Elbow$data$stdev[pcCount+2]>0.01){
-        pcCount <- pcCount + 1
-    }
-    print(paste0("pc Max Selected at: ", pcCount))
-    params.pcMax                <- append(params.pcMax,pcCount) 
+
+print(paste0("Generating Elbow Plot for Sample "))
+Elbow <- ElbowPlot(MergedSO, ndims = 100, reduction = "pca")
+pdf(paste0("./figures/single_cell/",params.ProjectName,"_",paste(params.SampleNames, collapse = "_"),"_ElbowPlot.pdf"), 
+    width = 20, height = 15)
+print(Elbow)
+dev.off()
+print(Elbow)
+pcCount <- 1
+while(Elbow$data$stdev[pcCount]-Elbow$data$stdev[pcCount+1]>0.01 | Elbow$data$stdev[pcCount+1]-Elbow$data$stdev[pcCount+2]>0.01){
+    pcCount <- pcCount + 1
 }
+print(paste0("pc Max Selected at: ", pcCount))
+params.pcMax                <- append(params.pcMax,pcCount) 
+
 
 ```
-
-# Set Merged SO = only SO in environment
-
-```{r}
-MergedSO <- get(SeuratObjList[1])
-```
-
 
 #### Create Cluster names for unintegrated
 
@@ -495,7 +522,7 @@ MergedSO <- FindClusters(MergedSO, resolution = params.resolutions, cluster.name
 # Generate Sankey Plot - SC
 
 ```{r}
-setwd(params.workingdir)
+setwd(params.outdir)
 
 mergedSOmetaRes <- MergedSO@meta.data
 
@@ -564,9 +591,13 @@ MergedSO
 #### Find Clusters and Generate Markers
 
 ```{r}
-setwd(params.workingdir)
+setwd(params.outdir)
 
-### Find Clusters and Gerenated Markers
+if (length(SeuratObjList) > 1){
+  MergedSO <- PrepSCTFindMarkers(MergedSO, assay = "SCT", verbose = TRUE)
+}
+
+### Find Clusters and Generated Markers
 for(i in 1:length(params.resolutions)){
     print(paste0("Finding Markers at ",params.resolutions[i]," resolution..."))
     if(params.integration ==T){
@@ -627,7 +658,7 @@ if(params.integration ==T ){
 #### Plot inital UMAPs
 
 ```{r}
-setwd(params.workingdir)
+setwd(params.outdir)
 
 pdf(paste0("./figures/single_cell/",params.ProjectName,"InitialUMAPs.pdf"), width = 20, height = 15)
 if(params.integration ==T ){
@@ -655,7 +686,7 @@ if(params.integration ==T ){
 #### Plot initial TSNE
 
 ```{r}
-setwd(params.workingdir)
+setwd(params.outdir)
 
 pdf(paste0("./figures/single_cell/",params.ProjectName,"InitialTSNEs.pdf"), width = 20, height = 15)
 if(params.integration ==T ){
@@ -684,7 +715,7 @@ if(params.integration ==T ){
 
 
 ```{r}
-setwd(params.workingdir)
+setwd(params.outdir)
 
 pdf(paste0("./figures/single_cell/",params.ProjectName,"qcUMAPs.pdf"), width = 20, height = 15)
 if(params.integration ==T ){
@@ -717,7 +748,7 @@ if(params.integration ==T ){
 #### Make Loupe File
 
 ```{r}
-setwd(params.workingdir)
+setwd(params.outdir)
 
 if(params.makeLoupe == T){
     if(!dir.exists("LoupeFiles")){
@@ -735,7 +766,7 @@ if(params.makeLoupe == T){
 #### Save RDS
 
 ```{r}
-setwd(params.workingdir)
+setwd(params.outdir)
 
 if(params.saveRdsSO == T){
     if(!dir.exists("RDSObjects")){
@@ -753,7 +784,7 @@ if(params.saveRdsSO == T){
 
 
 ```{r}
-setwd(params.workingdir)
+setwd(params.outdir)
 
 resolutions = colnames(MergedSO@meta.data)[grepl(pattern = params.cluster_prefix, colnames(MergedSO@meta.data))]
 
@@ -765,9 +796,28 @@ if (!dir.exists("projections")) {
   dir.create("projections")
 }
 
+slice_id <- function(string) {
+  tmp_str <- stri_reverse(string)
+  underscore_index <- gregexpr("_", tmp_str)[[1]]
+  print(tmp_str)
+  sliced_string <- substr(tmp_str, start = 1, stop = underscore_index-1)
+  sliced_string <- stri_reverse(sliced_string)
+  return(sliced_string)
+}
+
+
+if (length(SeuratObjList) > 1){
+for (name in params.SampleNames) {
+  rows <- which(grepl(name, rownames(cell_cluster_idents)))
+  tmp <- cell_cluster_idents[rows,]
+  rownames(tmp) <- lapply(rownames(tmp), slice_id)
+  write.csv(tmp, file = paste0("projections/seurat_clusters.", name,".csv"), col.names = NA, quote = FALSE, row.names = TRUE)
+}
+}else {
 write.csv(umap, file = paste0("projections/seurat_umap.", params.ProjectName,".csv"), col.names = NA, quote = FALSE, row.names = TRUE)
 write.csv(tsne, file = paste0("projections/seurat_tsne.", params.ProjectName,".csv"), col.names = NA, quote = FALSE, row.names = TRUE)
 write.csv(cell_cluster_idents, file = paste0("projections/seurat_clusters.", params.ProjectName,".csv"), col.names = NA, quote = FALSE, row.names = TRUE)
+}
 ```
 
 
@@ -776,7 +826,7 @@ write.csv(cell_cluster_idents, file = paste0("projections/seurat_clusters.", par
 
 
 ```{r}
-setwd(params.workingdir)
+setwd(params.outdir)
 
 library(caret)
 

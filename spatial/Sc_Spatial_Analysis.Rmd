@@ -758,12 +758,16 @@ setwd(params.workingdir)
 resolutions = colnames(MergedSO@meta.data)[grepl(pattern = params.cluster_prefix, colnames(MergedSO@meta.data))]
 
 cell_cluster_idents <- FetchData(MergedSO, vars = resolutions)
+umap <- MergedSO@reductions$umap.unintegrated@cell.embeddings
+tsne <- MergedSO@reductions$tsne.unintegrated@cell.embeddings
 
-if (!dir.exists("clustering")) {
-  dir.create("clustering")
+if (!dir.exists("projections")) {
+  dir.create("projections")
 }
 
-write.csv(cell_cluster_idents, file = paste0("clustering/seurat_clusters.", params.ProjectName,".csv"), col.names = NA, quote = FALSE, row.names = TRUE)
+write.csv(umap, file = paste0("projections/seurat_umap.", params.ProjectName,".csv"), col.names = NA, quote = FALSE, row.names = TRUE)
+write.csv(tsne, file = paste0("projections/seurat_tsne.", params.ProjectName,".csv"), col.names = NA, quote = FALSE, row.names = TRUE)
+write.csv(cell_cluster_idents, file = paste0("projections/seurat_clusters.", params.ProjectName,".csv"), col.names = NA, quote = FALSE, row.names = TRUE)
 ```
 
 

@@ -227,7 +227,7 @@ rm(list = Annotated10X)
 #### Select Mitochondrial Genes
 
 ```{r}
-mito.genes <- c("ND2","ND1","ND3","ND4","ND4L","ND5","ND6")
+mito.genes <- param.mtGeneList
 mito.contig <- c(rownames(ID2Gene)[ID2Gene$V2 %in% mito.genes ] , rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("^COX",ID2Gene$V2)]] )
 mito.contig <- Features[Features$V1 %in% mito.contig,]
 mito.contig$V2 <- gsub("_","-",mito.contig$V2)

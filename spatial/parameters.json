@@ -1,10 +1,11 @@
 {
-	"working_dirs"  : ["/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/Metamorphic",
-                            "/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/Neotenic"],
-        "out_dir"       : "/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/Neo_Meta",
+	"working_dirs"  : ["/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/Neotenic",
+                            "/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/Tail"],
+        
+        "out_dir"       : "/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/Neo_limb_tail",
         "H5_directory"  : "./data",
         "H5_Name"       : "filtered_feature_bc_matrix.h5",
-        "SampleNames"   : ["limb_metamorphic", "limb_neotenic"],
+        "SampleNames"   : ["Neo_Limb", "Neo_Tail"],
         "Project_Name"  : "pmurawala_009",
        
         "SubsetGenes"   : false,
@@ -23,10 +24,10 @@
         "ClusterPrefix" : "Res.",
         "Resolutions"   : [0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.2,1.5],
 
-        "Integrating"       : false,
-        "IntegrationMethod" : "",
+        "Integrating"       : true,
+        "IntegrationMethod" : "Harmony",
         
-        "MakeLoupe"     : false,
+        "MakeLoupe"     : true,
         "SaveRDS"       : true
 
 }

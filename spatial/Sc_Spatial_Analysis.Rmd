@@ -319,7 +319,7 @@ rm(list = Vector10X)
 
 ```{r}
 for (samp in SeuratObjList){
-NameSO <- SeuratObjList[1]
+
   
 if (params.organism == "MOUSE"){
   mito.genes <- row.names(get(NameSO))[grepl(pattern = "^mt-", x = row.names(get(NameSO)))]
@@ -352,7 +352,7 @@ if (params.organism == "MOUSE"){
 
 
 print(paste0("Calculating MT% on Sample: ", NameSO))
-assign(NameSO, calcMT(get(NameSO)))
+assign(samp, calcMT(get(samp)))
 }
 ```
 
@@ -518,6 +518,53 @@ MergedSO <- FindNeighbors_aKNNO(MergedSO, dims = 1:params.pcMax, reduction = "pc
 ```{r}
 MergedSO <- FindClusters(MergedSO, resolution = params.resolutions, cluster.name = params.resolutionsNames, graph.name="aKNN_O")
 ```
+
+#### Integrate if `params.integration == T`
+
+```{r}
+if (params.integration == T) {
+    if(params.integrationMethod == "FastMNN"){
+        MergedSO <- IntegrateLayers(object = MergedSO, method = paste0(params.integrationMethod,"Integration"), new.reduction = paste0("integrated.",params.integrationMethod))
+    }else{
+        MergedSO <- IntegrateLayers(object = MergedSO, method = paste0(params.integrationMethod,"Integration"), orig.reduction = "pca", new.reduction = paste0("integrated.",params.integrationMethod))
+    }
+}
+```
+
+#### Create Cluster Names for Integrated
+
+```{r}
+if (params.integration == T) {
+count <- 1
+countMax <- length(params.resolutions)
+params.resolutionsNames <- c()
+while (count <= countMax){
+    resVal <- paste0(params.integrationMethod,params.cluster_prefix,params.resolutions[count])
+    params.resolutionsNames <- append(params.resolutionsNames, resVal)
+    count <- count + 1
+}
+params.resolutionsNames
+}
+```
+
+#### Find Neighbors for Integrated
+
+```{r}
+if (params.integration == T) {
+MergedSO <- FindNeighbors_aKNNO(MergedSO, dims = 1:params.pcMax, reduction = paste0("integrated.",params.integrationMethod))
+}
+```
+
+#### Find Clusters and Set Ident for Integrated
+
+```{r}
+if (params.integration == T) {
+MergedSO <- FindClusters(MergedSO, resolution = params.resolutions, cluster.name = params.resolutionsNames, graph.name="aKNN_O")
+}
+```
+
+
+
 
 # Generate Sankey Plot - SC
 

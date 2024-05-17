@@ -53,20 +53,18 @@ params.min_cells <- args[6]
 # Min Features
 params.min_features <- args[7]
 
-
 ######################
 # FEATURE SUBSETTING #
 ######################
 
-if (params.genes_2_use == null){
-  feature_list  <- read.csv(paste0(params.data_directory, "features.tsv"), sep = "\t", header = F)
+if (toupper(params.genes_2_rm) == "NULL"){
+  feature_list  <- read.csv(paste0(params.data_directory, "features.tsv.gz"), sep = "\t", header = F)
   new_feat_list <- feature_list
 }else{
   gene_list     <- read.csv(params.genes_2_rm, sep = "\t", header = F)
   feature_list  <- read.csv(paste0(params.data_directory, "features.tsv"), sep = "\t", header = F)
   new_feat_list <- feature_list[-c(which(feature_list %in% gene_list))]
 }
-
 
 ################################
 # CREATE 10X OBJECT AND SUBSET #
@@ -86,14 +84,14 @@ assign(Name10X, Read10X(data.dir = params.data_directory, strip.suffix = T, gene
 
 # Subset 10x Object
 Name10XAnnotated <- paste0(params.sample_name,"_Ann")
-assign(Name10XAnnotated, get(params.sample_name)[which(rownames(get(params.sample_name)) %in% rownames(new_feat_list)),])
+assign(Name10XAnnotated, get(params.sample_name)[which(rownames(get(params.sample_name)) %in% new_feat_list[,params.gene_column]),])
 
 ########################
 # CREATE SEURAT OBJECT #
 ########################
 
 NameSO <- paste0("SO_",params.sample_name)
-assign(NameSO, CreateSeuratObject(counts = get(Name10XAnnotated), project = params.project_name, min.cells = params.min_cells, min.features = params.min_features))
+assign(NameSO, CreateSeuratObject(counts = get(Name10XAnnotated), project = params.project_name, min.cells = params.min_cells, min.features = params.min_features, ))
 
 ###############
 # SAVE OUTPUT #
@@ -101,7 +99,7 @@ assign(NameSO, CreateSeuratObject(counts = get(Name10XAnnotated), project = para
 
 SaveSeuratRds(get(NameSO), file = paste0(params.sample_name, "_SO.rds"))
 
-sink(paste0(params.sample_name,"validation.log"))
+sink(paste0(params.sample_name,".validation.log"))
 
 print(get(NameSO))
 

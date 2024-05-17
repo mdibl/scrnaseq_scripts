@@ -1,0 +1,923 @@
+---
+title: "SeuratV5_axo.Rmd"
+author: "Ryan Seaman"
+date: "02/06/2024"
+output:
+  html_document:
+    code_folding: "hide"
+---
+
+# Seurat V5 Script
+
+═══════════════════════════════════════════════════
+
+## Description: Script for scRNAseq analysis (using Seurat v5)
+
+### Author: Ryan Seaman
+
+### Updated: Feb 1, 2024
+
+### MDI Biological Laboratory Comparative Genomics and Data Science Core
+
+═══════════════════════════════════════════════════
+
+#### PI: pMurawala
+
+#### Project: pmurawala_008_kidney
+
+```{r setup, include=FALSE}
+#Suppress
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+### Load Packages and Set options
+
+```{r}
+library(dplyr)
+library(Matrix)
+library(viridis)
+library(tidyverse)
+library(Seurat)
+library(SeuratData)
+library(SeuratObject)
+library(SeuratWrappers)
+library(Seurat.utils)
+library(SingleCellExperiment)
+library(gprofiler2)
+library(ggplot2)
+library(ggsankey)
+library(DoubletFinder)
+library(stringr)
+library(patchwork)
+library(loupeR)
+library(presto)
+
+options(future.globals.maxSize = 1e9)
+options(Seurat.object.assay.version = "v5")
+```
+
+### Required Parameters
+
+```{r}
+# Working Directory
+#    Path to working Directory (leave empty if working in a project)
+param.workingdir        <- ""       
+
+# 10X Data Input
+#   Comma Seperated List of relative paths to Samples (3 Files: features, barcodes, matrix)
+#   (Paths in double quotes) eg. c("./data/Sample1/","./data/Sample2/"","./data/Sample3/")
+param.SampleDirectores  <- c("data/neo/","data/meta/")
+#   List of Sample names (same order as paths) (Names in single quotes) 
+#   eg. c('Sample1','Sample2','Sample3')
+param.SampleNames       <- c("kidney_neo","kidney_meta") 
+#   Number of Recovered cells per sample in same order
+params.CellsRecovered   <- c(19586,21102)
+#   Name of project
+param.ProjectName       <- "pmurawala_008_kidney"        
+
+# Table To Remove unwanted genes
+param.FeatureFile       <- "data/ref/features.tsv"
+param.ID2Gene           <- "data/ref/AxolotlBestMatchwCellTypeStrict.tsv"
+
+# Gene Lists for Cell Cycle Scoring and MT
+#   Currently set to search for pattern. change to a list "c()" for a custom list
+param.mtGeneList        <- c("ND2","ND1","ND3","ND4","ND4L","ND5","ND6")     
+param.g2mGeneList       <- cc.genes.updated.2019$g2m.genes
+param.sGeneList         <- cc.genes.updated.2019$s.genes
+
+# Seurat Object Creation
+#   Which column of the feature file to use for gene names (generally 2 unless annotations
+#   are not great)
+param.geneColumn        <- 2 
+#   Min number cells per feature (Keep Same)
+param.minCells          <- 3
+#   Min number of features per cell (Keep Same)
+param.minFeatures       <- 200  
+
+# Seurat Scaling
+#    in vars to regress, it should be metadata sections to be regressed or genes i.e. eGFP
+params.vars2Regress     <- c("nCount_RNA","nFeature_RNA","percent.mt","S.Score", "G2M.Score")
+
+
+# Post Scale Options
+#    True of False: make Loupe File
+param.makeLoupe            <- T   
+#    List of Resolutions in ascending order ex. c(0.05,0.1,0.3,0.5,0.7,0.9)
+param.resolutions          <- c(0.05,0.1,0.3,0.5,0.7,0.9,1.2,1.5) 
+#    True of False: Run integration
+param.integration          <- T   
+#    If param.integration set to true, decide which integration method to use. 
+#    (options: CCA, RPCA, Harmony, FastMNN) scVIIntegration needs additional setup -- conda-env
+param.integrationMethod   <- "Harmony"                          
+
+
+
+# Save Final Merged RDS file at end of Script (Good for keeping Progressive Versions of
+# Seurat object)
+param.saveRdsSO         <- T       
+
+```
+
+#### Set working directory if not in a project
+
+```{r}
+if(param.workingdir != ""){
+    setwd(param.workingdir)
+}
+```
+
+#### Make output directories
+
+```{r}
+if(!dir.exists("figures")){
+    dir.create("figures")
+}
+if(!dir.exists("markers")){
+    dir.create("markers")
+}
+```
+
+#### Removal of unwanted genes
+
+```{r}
+ID2Gene <- read.delim(param.ID2Gene,sep = "\t" ,header = F)
+rownames(ID2Gene) = ID2Gene[,1]
+
+unannotated.transcripts = rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("PEG10",ID2Gene$V2)] ]
+unannotated.transcripts = unique(c(rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("L1TD1",ID2Gene$V2)] ], unannotated.transcripts))
+unannotated.transcripts = unique(c(rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("RTL",ID2Gene$V2)] ], unannotated.transcripts))
+unannotated.transcripts = unique(c(rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("GIN1",ID2Gene$V2)] ], unannotated.transcripts))
+unannotated.transcripts = unique(c(rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("L1\\-RT",ID2Gene$V2)] ], unannotated.transcripts))
+unannotated.transcripts = unique(c(rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("^N\\/A",ID2Gene$V2)] ], unannotated.transcripts))
+unannotated.transcripts = unique(c(rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("^AMEX",ID2Gene$V2)] ], unannotated.transcripts))
+
+ID2Gene = ID2Gene[!rownames(ID2Gene) %in% unannotated.transcripts,]
+
+rp.genes = rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("^RPL",ID2Gene$V2)]]
+rp.genes = unique(c(rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("^RPS",ID2Gene$V2)] ], rp.genes))
+
+ID2Gene = ID2Gene[!rownames(ID2Gene) %in% rp.genes,]
+
+Features <- read.delim(param.FeatureFile,sep = "\t",header = F)
+rownames(Features) = Features[,2]
+
+Features <- Features[Features$V1 %in% rownames(ID2Gene),]
+```
+
+### Prep Seurat Objects
+
+#### Read in 10X Filtered Directories
+
+```{r}
+count <- 1
+Vector10X <- c()
+for (dir in param.SampleDirectores){
+    Name10X <- paste0(param.SampleNames[count],"_10X")
+    assign(Name10X, Read10X(data.dir = dir, strip.suffix = T, gene.column = param.geneColumn))
+    Vector10X <- append(Vector10X, Name10X)
+    count <- count + 1
+}
+```
+
+#### Remove unwanted genes
+
+```{r}
+count <- 1
+Annotated10X <- c()
+for (samp in Vector10X){
+    Name10XAnnotated <- paste0(param.SampleNames[count],"_Ann")
+    assign(Name10XAnnotated, get(samp)[which(rownames(get(samp)) %in% rownames(Features)),])
+    Annotated10X <- append(Annotated10X, Name10XAnnotated)
+    count <- count + 1
+}
+```
+
+#### Create Seurat Objects from 10X Objects
+
+```{r}
+count <- 1
+SeuratObjList <- c()
+for (samp in Annotated10X){
+    NameSO <- paste0("SO_",param.SampleNames[count])
+    assign(NameSO, CreateSeuratObject(counts = get(samp), project = param.SampleNames[count], min.cells = param.minCells, min.features = param.minFeatures))
+    SeuratObjList <- append(SeuratObjList, NameSO)
+    count <- count + 1
+}
+```
+
+#### Validate Seurat Objects
+
+```{r}
+for (samp in SeuratObjList){
+    print(samp)
+    print(get(samp))
+
+}
+```
+
+#### Cleanup
+
+```{r}
+rm(list = Vector10X)
+rm(list = Annotated10X)
+```
+
+## Preprocess each Seurat object individually to remove doublets
+
+#### Select Mitochondrial Genes
+
+```{r}
+mito.genes <- param.mtGeneList
+mito.contig <- c(rownames(ID2Gene)[ID2Gene$V2 %in% mito.genes ] , rownames(ID2Gene)[ID2Gene$V2 %in% ID2Gene$V2[grep("^COX",ID2Gene$V2)]] )
+mito.contig <- Features[Features$V1 %in% mito.contig,]
+mito.contig$V2 <- gsub("_","-",mito.contig$V2)
+
+```
+
+#### Calculate Mitochondrial Percent per Sample
+
+```{r}
+calcMT <- function(SO) {
+    mito.contig.sampSpec <- intersect(mito.contig$V2 , rownames(SO))
+    SO[["percent.mt"]] <- PercentageFeatureSet(SO, features = mito.contig.sampSpec)
+    SO
+}
+
+for (samp in SeuratObjList){
+    print(paste0("Calculating MT% on Sample: ", samp))
+    assign(samp, calcMT(get(samp)))
+}
+```
+
+#### Normalize Data
+
+```{r}
+for (samp in SeuratObjList){
+    print(paste0("Normalizing data on Sample: ", samp))
+    assign(samp, NormalizeData(get(samp)))
+}
+```
+
+#### Find Variable Features
+
+```{r}
+for (samp in SeuratObjList){
+    print(paste0("Finding variable features on sample: ", samp))
+    assign(samp, FindVariableFeatures(get(samp)))
+}
+```
+
+#### Make Pre-filter QC Plots
+
+Save and Show
+
+```{r}
+for (samp in SeuratObjList){
+    print(paste0("Building PrescaleQC plots on sample: ", samp))
+    plot1 <- FeatureScatter(get(samp), feature1 = "nCount_RNA", feature2 = "percent.mt", shuffle = T)
+    plot2 <- FeatureScatter(get(samp), feature1 = "nCount_RNA", feature2 = "nFeature_RNA", shuffle = T)
+    vplot1 <- VlnPlot(get(samp), features = c("nCount_RNA","nFeature_RNA","percent.mt"),pt.size = -1)
+
+
+    pdf(file = paste0('figures/',param.ProjectName,"_",samp,'_preFilterQC.pdf'), title = paste0(param.ProjectName," ",samp,' PreFilter QC'), width = 11, height = 8.5)
+    print(plot1 + plot2)
+    print(vplot1)
+    dev.off()
+    
+    print(plot1 + plot2)
+    print(vplot1)
+
+    
+}
+```
+
+#### Calculate Subsetting Bounds and Subset
+
+##### Calculate Values
+
+Be sure to validate these values
+
+```{r}
+for (samp in SeuratObjList){
+    print(paste0("Calcualting subset bounds on sample: ", samp))
+    param.minNCount         <- quantile(get(samp)$nCount_RNA, probs = 0.1)[["10%"]]
+    param.minNFeature         <- quantile(get(samp)$nFeature_RNA, probs = 0.1)[["10%"]]
+    param.maxMitoPct        <- 10
+
+    print(paste0("     Minimum N Count set point:        ", param.minNCount))
+    print(paste0("     Minimum N Feature set point:      ", param.minNFeature))
+    print(paste0("     Maximum Mito Percent set point:   ", param.maxMitoPct))
+    
+}
+```
+
+##### Subset Seurat objects
+
+```{r}
+for (samp in SeuratObjList){
+    print(paste0("Applying subset bounds on sample: ", samp))
+    param.minNCount         <- quantile(get(samp)$nCount_RNA, probs = 0.1)[["10%"]]
+    param.minNFeature         <- quantile(get(samp)$nFeature_RNA, probs = 0.1)[["10%"]]
+    param.maxMitoPct         <- 10
+
+    assign(samp,subset(get(samp), subset = nFeature_RNA > param.minNFeature & nCount_RNA > param.minNCount & percent.mt < param.maxMitoPct  ))
+}
+```
+
+##### Save and Show
+
+```{r}
+for (samp in SeuratObjList){
+    print(paste0("Building PrescaleQC plots on sample: ", samp))
+    plot1 <- FeatureScatter(get(samp), feature1 = "nCount_RNA", feature2 = "percent.mt", shuffle = T)
+    plot2 <- FeatureScatter(get(samp), feature1 = "nCount_RNA", feature2 = "nFeature_RNA", shuffle = T)
+    vplot1 <- VlnPlot(get(samp), features = c("nCount_RNA","nFeature_RNA","percent.mt"),pt.size = -1)
+
+
+    pdf(file = paste0('figures/',param.ProjectName,"_",samp,'_postFilterQC.pdf'), title = paste0(param.ProjectName," ",samp,' PostFilter QC'), width = 11, height = 8.5)
+    print(plot1 + plot2)
+    print(vplot1)
+    dev.off()
+    
+    print(plot1 + plot2)
+    print(vplot1)
+}
+```
+
+#### Identify Cell Cycle Genes
+
+```{r}
+g2m.genes <- param.g2mGeneList
+g2m.genes <- rownames(ID2Gene)[ID2Gene$V2 %in% g2m.genes ] 
+g2m.genes <- Features[Features$V1 %in% g2m.genes,]
+g2m.genes$V2 <- gsub("_","-",g2m.genes$V2)
+#g2m.genes <- intersect(g2m.genes$V2 , rownames(SO_kidney_meta))
+
+
+s.genes <- param.sGeneList
+s.genes <- rownames(ID2Gene)[ID2Gene$V2 %in% s.genes ] 
+s.genes <- Features[Features$V1 %in% s.genes,]
+s.genes$V2 <- gsub("_","-",s.genes$V2)
+#s.genes <- intersect(s.genes$V2 , rownames(SO_kidney_meta))
+```
+
+#### Calculate Cell Cycle Scores
+
+```{r}
+for (samp in SeuratObjList){
+    print(paste0("Calculating Cell Cycle Score on Sample: ", samp))
+    g2m.genes.sampSpec <- intersect(g2m.genes$V2 , rownames(get(samp)))
+    s.genes.sampSpec <- intersect(s.genes$V2 , rownames(get(samp)))
+    assign(samp, CellCycleScoring(get(samp), s.features = s.genes.sampSpec, g2m.features = g2m.genes.sampSpec, set.ident = TRUE))
+}
+```
+
+#### Scale Data
+
+Description:
+
+-   Shifts the expression of each gene, so that the mean expression across cells is 0
+
+-   Scales the expression of each gene, so that the variance across cells is 1
+
+-   This step gives equal weight in downstream analyses, so that highly-expressed genes do not dominate
+
+-   The results of this are stored in pbmc[["RNA"]]\$scale.data
+
+> > in vars to regress, it should be metadata sections to be regressed or genes i.e. eGFP
+
+```{r}
+for (samp in SeuratObjList){
+    print(paste0("Scaling Data on Sample: ", samp))
+    all.genes <- rownames(get(samp))
+    assign(samp,ScaleData(get(samp), features = all.genes ,vars.to.regress = params.vars2Regress))
+}
+```
+
+#### Run PCA on individual samples
+
+```{r}
+for (samp in SeuratObjList){
+    print(paste0("Running PCA on Sample: ", samp))
+    all.genes <- rownames(get(samp))
+    assign(samp,RunPCA(get(samp), features = all.genes ,npcs = 100))
+}
+```
+
+#### Generate Elbow Plots and Calculate PCs to use
+
+Validate PCs selected
+
+```{r}
+param.pcMax <- c()
+for (samp in SeuratObjList){
+    print(paste0("Generating Elbow Plot for Sample: ", samp))
+    Elbow <- ElbowPlot(get(samp), ndims = 100, reduction = "pca")
+    pdf(paste0("./figures/",param.ProjectName,"_",samp,"_ElbowPlot.pdf"), 
+        width = 20, height = 15)
+    print(Elbow)
+    dev.off()
+    print(Elbow)
+    pcCount <- 1
+    while(Elbow$data$stdev[pcCount]-Elbow$data$stdev[pcCount+1]>0.01 | Elbow$data$stdev[pcCount+1]-Elbow$data$stdev[pcCount+2]>0.01){
+        pcCount <- pcCount + 1
+    }
+    print(paste0("pc Max Selected at: ", pcCount))
+    param.pcMax                <- append(param.pcMax,pcCount) 
+}
+```
+
+#### Find Neighbors
+
+```{r}
+count <- 1
+for (samp in SeuratObjList){
+    print(paste0("Running Find Neighbors on Sample: ", samp))
+    assign(samp,FindNeighbors(get(samp), dims = 1:param.pcMax[count], reduction = "pca"))
+    count <- count + 1
+}
+```
+
+#### Find Clusters
+
+```{r}
+for (samp in SeuratObjList){
+    print(paste0("Running Find Clusters on Sample: ", samp))
+    assign(samp,FindClusters(get(samp)))
+}
+```
+
+#### Build UMAP
+
+```{r}
+count <- 1
+for (samp in SeuratObjList){
+    print(paste0("Building UMAP on Sample: ", samp))
+    assign(samp,RunUMAP(get(samp), dims = 1:param.pcMax[count], reduction = "pca"))
+    count <- count + 1
+}
+```
+
+### Identify Doublets
+
+Percent Doublet is calculated based on a 0.8% increase per 1000 cells recovered as per the 10X website.
+
+```{r}
+count <- 1 
+for (samp in SeuratObjList){
+    print(paste0("Finding Doublets on Sample: ", samp))
+    print(paste0("    Proportion of Doublet Cells: ",(params.CellsRecovered[count]/1000)*0.008))
+
+    sweep.res.list_meta <- paramSweep(get(samp), PCs = 1:param.pcMax[count], sct = F )
+    sweep.stats_meta <- summarizeSweep(sweep.res.list_meta, GT = FALSE)
+    bcmvn_meta <- find.pK(sweep.stats_meta)
+
+    print(ggplot(bcmvn_meta, aes(pK, BCmetric, group = 1))+ geom_point() + geom_line()+ ggtitle(samp))
+
+    pK <- bcmvn_meta %>%
+        filter(BCmetric == max(BCmetric)) %>%
+        select(pK)
+
+    pK <- as.numeric(as.character(pK[[1]]))
+    
+    print(paste0("    pK set at : ",pK))
+
+    annotations <- get(samp)$seurat_clusters
+    homotypic.prop <- modelHomotypic(annotations)
+    nExp_poi <- round(((params.CellsRecovered[count]/1000)*0.008)*nrow(get(samp)@meta.data))
+    nExp_poi.adj <- round(nExp_poi*(1 - homotypic.prop))
+
+    assign(paste0(samp), doubletFinder(get(samp),
+                                        PCs = 1:param.pcMax[count],
+                                        pN = 0.25,
+                                        pK = pK,
+                                        nExp = nExp_poi.adj,
+                                        reuse.pANN = F,
+                                        sct = F))
+    count <- count + 1
+}
+```
+
+#### Visualize Doublets
+
+```{r}
+for (samp in SeuratObjList){
+    print(paste0("Visualizing Doublets on Sample: ", samp))
+    doubletmeta <- as.character(colnames(get(samp)[[grep("DF",(colnames(get(samp)[[]])))]]))
+    print(DimPlot(get(samp), group.by = doubletmeta)+ ggtitle(samp)) 
+}
+```
+
+#### Count Doublets
+
+```{r}
+for (samp in SeuratObjList){
+    print(paste0("Counting Doublets and Singlets on Sample: ", samp))
+    doubletmeta <- as.character(colnames(get(samp)[[grep("DF",(colnames(get(samp)[[]])))]]))
+    print(table(get(samp)[[doubletmeta]]))
+}
+```
+
+#### Subset For Singlets
+
+```{r}
+for (samp in SeuratObjList){
+    print(paste0("Subsetting for Singlets on Sample: ", samp))
+    doubletmeta <- as.character(colnames(get(samp)[[grep("DF",(colnames(get(samp)[[]])))]]))
+    assign(samp,subset(get(samp), subset = !!as.name(doubletmeta) == "Singlet"  ))
+}
+```
+
+### Merge Seurat Objects
+
+```{r}
+count <- 2
+countMax <- length(SeuratObjList)
+SOlist2up <- c()
+while (count <= countMax){
+    SOlist2up <- append(SOlist2up, get(SeuratObjList[count]))
+    count <- count + 1
+}
+
+MergedSO <- merge(get(SeuratObjList[1]), y= SOlist2up, add.cell.ids = param.SampleNames, project = param.ProjectName)
+MergedSO
+```
+
+#### Normalize Merged Seurat Object
+
+```{r}
+MergedSO <- NormalizeData(MergedSO)
+```
+
+#### Find Variable Genes on Merged Seurat Object
+
+```{r}
+MergedSO <- FindVariableFeatures(MergedSO)
+```
+
+#### Save Visualization of Merged Post Filter Plot
+
+```{r}
+plot1 <- FeatureScatter(MergedSO, feature1 = "nCount_RNA", feature2 = "percent.mt", shuffle = T, group.by = "orig.ident")
+plot2 <- FeatureScatter(MergedSO, feature1 = "nCount_RNA", feature2 = "nFeature_RNA", shuffle = T, group.by = "orig.ident")
+vplot1 <- VlnPlot(MergedSO, features = c("nCount_RNA","nFeature_RNA","percent.mt"),pt.size = -1, group.by = "orig.ident")
+
+### QC: Save PostFilter Plots
+pdf(file = paste0('figures/',param.ProjectName,'postMergeQC.pdf'), title = paste0(param.ProjectName,' Post Merge QC'), width = 11, height = 8.5)
+plot1 + plot2
+vplot1
+dev.off()
+
+print(plot1 + plot2)
+print(vplot1)
+```
+
+#### Cleanup
+
+```{r}
+rm(plot1, plot2, vplot1, bcmvn_meta, Elbow, SOlist2up, sweep.stats_meta, sweep.res.list_meta)
+rm(annotations, count, countMax, dir, doubletmeta, homotypic.prop, Name10X, Name10XAnnotated, NameSO, nExp_poi, nExp_poi.adj, pK, pcCount, samp, Vector10X, Annotated10X, g2m.genes.sampSpec, s.genes.sampSpec, calcMT, SeuratObjList)
+```
+
+#### Scale Merged Seurat Object
+
+```{r}
+all.genes <- rownames(MergedSO)
+MergedSO = ScaleData(MergedSO, features = all.genes ,vars.to.regress = c("nCount_RNA","nFeature_RNA","percent.mt","S.Score", "G2M.Score")) 
+
+```
+
+#### Save Merged + Scaled Seurat Object to RDS
+
+```{r}
+if(param.saveRdsSO == T){
+    if(!dir.exists("RDSObjects")){
+        dir.create("RDSObjects")
+    }
+    saveRDS(MergedSO, paste0("./RDSObjects/",param.ProjectName,"SO.rds"))
+}
+```
+
+### Post Scale
+
+#### Run PCA on Merged SO
+
+```{r}
+all.genes <- rownames(MergedSO)
+MergedSO <- RunPCA(MergedSO, features = all.genes, npcs = 100)
+```
+
+#### Find PC Value (and Save elbow plot)
+
+```{r}
+pdf(paste0("./figures/",param.ProjectName,"_Merged_ElbowPlot.pdf"), width = 20, height = 15)
+ElbowPlot(MergedSO, ndims = 100, reduction = "pca")
+dev.off()
+
+### Identify the point where the Elbow Plot flattens out (Verify in Plot)
+Elbow <- ElbowPlot(MergedSO, ndims = 100, reduction = "pca")
+print(Elbow)
+pcCount <- 1
+while(Elbow$data$stdev[pcCount]-Elbow$data$stdev[pcCount+1]>0.01 | Elbow$data$stdev[pcCount+1]-Elbow$data$stdev[pcCount+2]>0.01){
+    pcCount <- pcCount + 1
+}
+
+print(paste0("pc Max Selected at: ", pcCount))
+param.pcMax                <- pcCount     
+```
+
+#### Create Cluster names for unintegrated
+
+```{r}
+count <- 1
+countMax <- length(param.resolutions)
+param.resolutionsNames <- c()
+while (count <= countMax){
+    resVal <- paste0("unintegratedRes.",param.resolutions[count])
+    param.resolutionsNames <- append(param.resolutionsNames, resVal)
+    count <- count + 1
+}
+param.resolutionsNames
+```
+
+#### Find Neighbors
+
+```{r}
+MergedSO <- FindNeighbors(MergedSO, dims = 1:param.pcMax, reduction = "pca")
+```
+
+#### Find Cluster and Set Idents
+
+```{r}
+MergedSO <- FindClusters(MergedSO, resolution = param.resolutions, cluster.name = param.resolutionsNames)
+```
+
+#### Integrate if `param.integration == T`
+
+```{r}
+if (param.integration == T) {
+    if(param.integrationMethod == "FastMNN"){
+        MergedSO <- IntegrateLayers(object = MergedSO, method = paste0(param.integrationMethod,"Integration"), new.reduction = paste0("integrated.",param.integrationMethod))
+    }else{
+        MergedSO <- IntegrateLayers(object = MergedSO, method = paste0(param.integrationMethod,"Integration"), orig.reduction = "pca", new.reduction = paste0("integrated.",param.integrationMethod))
+    }
+}
+```
+
+#### Create Cluster Names for Integrated
+
+```{r}
+count <- 1
+countMax <- length(param.resolutions)
+param.resolutionsNames <- c()
+while (count <= countMax){
+    resVal <- paste0(param.integrationMethod,"Res.",param.resolutions[count])
+    param.resolutionsNames <- append(param.resolutionsNames, resVal)
+    count <- count + 1
+}
+param.resolutionsNames
+```
+
+#### Find Neighbors for Integrated
+
+```{r}
+MergedSO <- FindNeighbors(MergedSO, dims = 1:param.pcMax, reduction = paste0("integrated.",param.integrationMethod))
+
+```
+
+#### Find Clusters and Set Ident for Integrated
+
+```{r}
+MergedSO <- FindClusters(MergedSO, resolution = param.resolutions, cluster.name = param.resolutionsNames)
+
+```
+
+#### Generate Sankey Plot
+
+If `param.integration == T` run on Integrated, else run on Unintegrated
+
+```{r}
+mergedSOmetaRes <- MergedSO@meta.data
+
+if (param.integration == F){
+    mergedSOmetaRes <- mergedSOmetaRes[,grepl("^unintegratedRes",names(mergedSOmetaRes))]
+    names(mergedSOmetaRes) <- gsub("unintegratedRes","res",names(mergedSOmetaRes))
+}else{
+    pattern <- paste0(param.integrationMethod,"Res")
+    mergedSOmetaRes <- mergedSOmetaRes[,grepl(pattern,names(mergedSOmetaRes))]
+    names(mergedSOmetaRes) <- gsub(pattern,"res",names(mergedSOmetaRes))
+}
+
+df <- mergedSOmetaRes%>%
+    make_long(names(mergedSOmetaRes))
+
+df$next_node <- str_pad(df$next_node,2, pad = "0")
+df$node <- str_pad(df$node,2, pad = "0")
+
+df$reswClust <- paste0(df$x,": ", df$node)
+
+reagg <- df%>%
+    dplyr::group_by(reswClust)%>%                                        # Get counts 
+    tally()
+
+df2 <- merge(df, 
+             reagg, 
+             by.x = 'reswClust', 
+             by.y = 'reswClust', 
+             all.x = TRUE)
+
+pl <- ggplot(df2, aes(x = x,                        
+                      next_x = next_x,                                     
+                      node = node,
+                      next_node = next_node,        
+                      fill = factor(node),
+                      label = paste0(node, " = ", n))) +                 # Creates lable with node and count
+    geom_sankey(flow.alpha = 0.5,                                        # Add opacity
+                node.color = "black",                                    # Node Color
+                show.legend = TRUE) +                                    # This determines if you want your legend to show
+    geom_sankey_label(size = 3,
+                      color = "black", 
+                      fill = "white") +                                  # This specifies the Label format for each node 
+    theme_bw() + 
+    theme(legend.position = 'none') + 
+    theme(axis.title = element_blank(),
+          axis.text.y = element_blank(),
+          axis.ticks = element_blank(),
+          panel.grid = element_blank()) + 
+    scale_fill_viridis_d(option = "H") + 
+    labs(title = paste0("Sankey: ",param.ProjectName, ifelse(param.integration ==T,paste0(" Integrated (", param.integrationMethod,")"), " Unintegrated")," Dataset")) + 
+    labs(caption =NULL ) + 
+    labs(fill = 'Nodes')
+
+### Save Sankey Plot
+pdf(paste0("./figures/",param.ProjectName,"SankeyPlot.pdf"), width = 20, height = 15)
+pl
+dev.off()
+
+print(pl)
+MergedSO[["RNA"]] <- JoinLayers(MergedSO[["RNA"]])
+
+```
+
+#### Find Clusters and Generate Markers
+
+```{r}
+### Find Clusters and Gerenated Markers
+for(i in 1:length(param.resolutions)){
+    print(paste0("Finding Markers at ",param.resolutions[i]," resolution..."))
+    if(param.integration ==T){
+        Idents(MergedSO) <- paste0(param.integrationMethod,"Res.",param.resolutions[i])
+    }else{
+        Idents(MergedSO) <- paste0("unintegratedRes.",param.resolutions[i])
+    }
+    assign(paste0("MarkersRes",param.resolutions[i]),FindAllMarkers(MergedSO, only.pos = T, logfc.threshold = 0.3))
+}
+
+# Add in annotation info and output tsv files
+for(j in 1:length(param.resolutions)){
+    print(paste0("Generating Markers tsv at ",param.resolutions[j]," resolution..."))
+    markertemp <- get(paste0("MarkersRes",param.resolutions[j]))
+    markertemp <- markertemp  %>% arrange(cluster , desc(avg_log2FC))
+    markertemp$markercall <- 1
+    markertemp <- markertemp %>%
+        mutate(markercall = ifelse(avg_log2FC >= 1.7 & markertemp$pct.1/markertemp$pct.2 >= 1.7 & -log10(markertemp$p_val_adj) >= 27, 1, 0))
+    assign(paste0("MarkersRes",param.resolutions[j]),markertemp)
+    write.table(get(paste0("MarkersRes",param.resolutions[j])), file = paste0("./markers/",ifelse(param.integration ==T,paste0(" Integrated_", param.integrationMethod,"_"), " Unintegrated"),"MarkersRes",param.resolutions[j],".tsv"), sep = "\t", quote = F,row.names = F)
+    rm(markertemp)
+}
+```
+
+#### Set Default Ident
+
+```{r}
+param.identRes             <-   0.5   # Set resolution eg. 0.3 
+    
+### Set Ident
+if(param.integration ==T ){
+    Idents(MergedSO) <-paste0(param.integrationMethod,"Res.",param.identRes)
+}else{
+    Idents(MergedSO) <-paste0("unintegratedRes.",param.identRes)
+}
+```
+
+#### Run UMAP and TSNE
+
+```{r}
+MergedSO <- RunUMAP(MergedSO, dims = 1:param.pcMax, reduction = "pca", reduction.name = "umap.unintegrated")
+if(param.integration ==T ){
+    MergedSO <- RunUMAP(MergedSO, dims = 1:param.pcMax, reduction = paste0("integrated.",param.integrationMethod), reduction.name = paste0("umap.",param.integrationMethod))
+}
+MergedSO <- RunTSNE(MergedSO, dims = 1:param.pcMax, reduction = "pca", reduction.name = "tsne.unintegrated")
+if(param.integration ==T ){
+    MergedSO <- RunTSNE(MergedSO, dims = 1:param.pcMax, reduction = paste0("integrated.",param.integrationMethod), reduction.name = paste0("tsne.",param.integrationMethod))
+}
+```
+
+#### Plot inital UMAPs
+
+```{r}
+pdf(paste0("./figures/",param.ProjectName,"InitialUMAPs.pdf"), width = 20, height = 15)
+if(param.integration ==T ){
+    DimPlot(object = MergedSO, reduction = 'umap.unintegrated', pt.size = .25, label = T, group.by = "orig.ident", shuffle = T) + 
+        DimPlot(object = MergedSO, reduction = 'umap.unintegrated', pt.size = .25, label = T, group.by = "ident", shuffle = T) +
+        DimPlot(object = MergedSO, reduction = paste0("umap.",param.integrationMethod), pt.size = .25, label = T, group.by = "orig.ident", shuffle = T) + 
+        DimPlot(object = MergedSO, reduction = paste0("umap.",param.integrationMethod), pt.size = .25, label = T, group.by = "ident", shuffle = T)
+}else{
+    DimPlot(object = MergedSO, reduction = 'umap.unintegrated', pt.size = .25, label = T, group.by = "orig.ident", shuffle = T) + 
+        DimPlot(object = MergedSO, reduction = 'umap.unintegrated', pt.size = .25, label = T, group.by = "ident", shuffle = T) 
+}
+dev.off()
+
+if(param.integration ==T ){
+    print(DimPlot(object = MergedSO, reduction = 'umap.unintegrated', pt.size = .25, label = T, group.by = "orig.ident", shuffle = T) + 
+        DimPlot(object = MergedSO, reduction = 'umap.unintegrated', pt.size = .25, label = T, group.by = "ident", shuffle = T) +
+        DimPlot(object = MergedSO, reduction = paste0("umap.",param.integrationMethod), pt.size = .25, label = T, group.by = "orig.ident", shuffle = T) + 
+        DimPlot(object = MergedSO, reduction = paste0("umap.",param.integrationMethod), pt.size = .25, label = T, group.by = "ident", shuffle = T))
+}else{
+    print(DimPlot(object = MergedSO, reduction = 'umap.unintegrated', pt.size = .25, label = T, group.by = "orig.ident", shuffle = T) + 
+        DimPlot(object = MergedSO, reduction = 'umap.unintegrated', pt.size = .25, label = T, group.by = "ident", shuffle = T)) 
+}
+```
+
+#### Plot initial TSNE
+
+```{r}
+pdf(paste0("./figures/",param.ProjectName,"InitialTSNEs.pdf"), width = 20, height = 15)
+if(param.integration ==T ){
+    DimPlot(object = MergedSO, reduction = 'tsne.unintegrated', pt.size = .25, label = T, group.by = "orig.ident", shuffle = T) + 
+        DimPlot(object = MergedSO, reduction = 'tsne.unintegrated', pt.size = .25, label = T, group.by = "ident", shuffle = T) +
+        DimPlot(object = MergedSO, reduction = paste0("tsne.",param.integrationMethod), pt.size = .25, label = T, group.by = "orig.ident", shuffle = T) + 
+        DimPlot(object = MergedSO, reduction = paste0("tsne.",param.integrationMethod), pt.size = .25, label = T, group.by = "ident", shuffle = T)
+}else{
+    DimPlot(object = MergedSO, reduction = 'tsne.unintegrated', pt.size = .25, label = T, group.by = "orig.ident", shuffle = T) + 
+        DimPlot(object = MergedSO, reduction = 'tsne.unintegrated', pt.size = .25, label = T, group.by = "ident", shuffle = T) 
+}
+dev.off()
+
+if(param.integration ==T ){
+    print(DimPlot(object = MergedSO, reduction = 'tsne.unintegrated', pt.size = .25, label = T, group.by = "orig.ident", shuffle = T) + 
+        DimPlot(object = MergedSO, reduction = 'tsne.unintegrated', pt.size = .25, label = T, group.by = "ident", shuffle = T) +
+        DimPlot(object = MergedSO, reduction = paste0("tsne.",param.integrationMethod), pt.size = .25, label = T, group.by = "orig.ident", shuffle = T) + 
+        DimPlot(object = MergedSO, reduction = paste0("tsne.",param.integrationMethod), pt.size = .25, label = T, group.by = "ident", shuffle = T))
+}else{
+    print(DimPlot(object = MergedSO, reduction = 'tsne.unintegrated', pt.size = .25, label = T, group.by = "orig.ident", shuffle = T) + 
+        DimPlot(object = MergedSO, reduction = 'tsne.unintegrated', pt.size = .25, label = T, group.by = "ident", shuffle = T)) 
+}
+```
+
+#### QC Plots on UMAP
+
+```{r}
+pdf(paste0("./figures/",param.ProjectName,"qcUMAPs.pdf"), width = 20, height = 15)
+if(param.integration ==T ){
+    FeaturePlot(MergedSO, reduction = paste0("umap.",param.integrationMethod), pt.size = 1, features = "nFeature_RNA", order = T, cols = c("lightgrey", "blue")) +
+        FeaturePlot(MergedSO, reduction = paste0("umap.",param.integrationMethod), pt.size = 1, features = "nCount_RNA", order = T, cols = c("lightgrey", "blue")) +
+        FeaturePlot(MergedSO, reduction = paste0("umap.",param.integrationMethod), pt.size = 1, features = "percent.mt", order = T, cols = c("lightgrey", "blue")) + 
+        plot_layout(ncol = 2, nrow = 2)
+}else{
+    FeaturePlot(MergedSO, reduction = 'umap.unintegrated', pt.size = 1, features = "nFeature_RNA", order = T, cols = c("lightgrey", "blue")) +
+        FeaturePlot(MergedSO, reduction = 'umap.unintegrated', pt.size = 1, features = "nCount_RNA", order = T, cols = c("lightgrey", "blue")) +
+        FeaturePlot(MergedSO, reduction = 'umap.unintegrated', pt.size = 1, features = "percent.mt", order = T, cols = c("lightgrey", "blue")) + 
+        plot_layout(ncol = 2, nrow = 2)
+}
+dev.off()
+
+if(param.integration ==T ){
+    print(FeaturePlot(MergedSO, reduction = paste0("umap.",param.integrationMethod), pt.size = 1, features = "nFeature_RNA", order = T, cols = c("lightgrey", "blue")) +
+        FeaturePlot(MergedSO, reduction = paste0("umap.",param.integrationMethod), pt.size = 1, features = "nCount_RNA", order = T, cols = c("lightgrey", "blue")) +
+        FeaturePlot(MergedSO, reduction = paste0("umap.",param.integrationMethod), pt.size = 1, features = "percent.mt", order = T, cols = c("lightgrey", "blue")) + 
+        plot_layout(ncol = 2, nrow = 2))
+}else{
+    print(FeaturePlot(MergedSO, reduction = 'umap.unintegrated', pt.size = 1, features = "nFeature_RNA", order = T, cols = c("lightgrey", "blue")) +
+        FeaturePlot(MergedSO, reduction = 'umap.unintegrated', pt.size = 1, features = "nCount_RNA", order = T, cols = c("lightgrey", "blue")) +
+        FeaturePlot(MergedSO, reduction = 'umap.unintegrated', pt.size = 1, features = "percent.mt", order = T, cols = c("lightgrey", "blue")) + 
+        plot_layout(ncol = 2, nrow = 2))
+}
+
+```
+
+#### Make Loupe File
+
+```{r}
+if(param.makeLoupe == T){
+    if(!dir.exists("LoupeFiles")){
+        dir.create("LoupeFiles")
+    }
+    create_loupe(count_mat = MergedSO@assays$RNA$counts,
+                 clusters = select_clusters(MergedSO),
+                 projections = select_projections(MergedSO),
+                 output_name = paste0("./LoupeFiles/",param.ProjectName)
+    )
+}
+```
+
+#### Save RDS
+
+```{r}
+if(param.saveRdsSO == T){
+    if(!dir.exists("RDSObjects")){
+        dir.create("RDSObjects")
+    }
+    saveRDS(MergedSO, paste0("./RDSObjects/",param.ProjectName,"SO.rds"))
+}
+```

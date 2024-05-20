@@ -571,16 +571,33 @@ MergedSO <- FindClusters(MergedSO, resolution = params.resolutions, cluster.name
 ```{r}
 setwd(params.outdir)
 
+MergedSO <- LoadSeuratRds(file = "~/Desktop/mdibl/wd/spat/P_Murawala_001/Neo_limb_tail/RDSObjects/single_cell/pmurawala_009SO.rds")
+
+setwd(params.outdir)
+params.integration <- T
+
+key <- T
+integrated <- F
+while (key) {
+  
 mergedSOmetaRes <- MergedSO@meta.data
 
 if (params.integration == F){
     mergedSOmetaRes <- mergedSOmetaRes[,grepl(paste0("^", params.cluster_prefix),names(mergedSOmetaRes))]
     names(mergedSOmetaRes) <- gsub(params.cluster_prefix,"res",names(mergedSOmetaRes))
+    integrated <- F
+    key <- F
+    plot <- "Unintegrated"
 }else{
     pattern <- paste0(params.integrationMethod,"Res")
     mergedSOmetaRes <- mergedSOmetaRes[,grepl(pattern,names(mergedSOmetaRes))]
     names(mergedSOmetaRes) <- gsub(pattern,"res",names(mergedSOmetaRes))
+    integrated <- T
+    params.integration <- F
+    plot <- "Integrated"
 }
+
+
 
 df <- mergedSOmetaRes%>%
     make_long(names(mergedSOmetaRes))
@@ -600,7 +617,7 @@ df2 <- merge(df,
              by.y = 'reswClust', 
              all.x = TRUE)
 
-pl <- ggplot(df2, aes(x = x,                        
+assign(plot, ggplot(df2, aes(x = x,                        
                       next_x = next_x,                                     
                       node = node,
                       next_node = next_node,        
@@ -619,19 +636,21 @@ pl <- ggplot(df2, aes(x = x,
           axis.ticks = element_blank(),
           panel.grid = element_blank()) + 
     scale_fill_viridis_d(option = "H") + 
-    labs(title = paste0("Sankey: ",params.ProjectName, ifelse(params.integration ==T,paste0(" Integrated (", params.integrationMethod,")"), " Unintegrated")," Dataset")) + 
+    labs(title = paste0("Sankey: ",params.ProjectName, ifelse(integrated ==T,paste0(" Integrated (", params.integrationMethod,")"), " Unintegrated")," Dataset")) + 
     labs(caption =NULL ) + 
-    labs(fill = 'Nodes')
+    labs(fill = 'Nodes'))
+
+
 
 ### Save Sankey Plot
-pdf(paste0("./figures/single_cell/",params.ProjectName,"SankeyPlot.pdf"), width = 20, height = 15)
-pl
+pdf(paste0("./figures/single_cell/",params.ProjectName,ifelse(integrated ==T,paste0("Integrated__", params.integrationMethod), "_Unintegrated"),"SankeyPlot.pdf"), width = 20, height = 15)
+print(get(plot))
+}
 dev.off()
 
-print(pl)
 MergedSO[["RNA"]] <- JoinLayers(MergedSO[["RNA"]])
 
-MergedSO
+
 ```
 
 
@@ -644,32 +663,38 @@ if (length(SeuratObjList) > 1){
   MergedSO <- PrepSCTFindMarkers(MergedSO, assay = "SCT", verbose = TRUE)
 }
 
+marker_ls <- c()
+
+if(params.integration ==T){
+  for(i in 1:length(params.resolutions)){
+    print(paste0("Finding Markers at ",params.resolutions[i]," resolution..."))
+    Idents(MergedSO) <- paste0(params.integrationMethod,"Res.",params.resolutions[i])
+    assign(paste0("MarkersRes_Integrated",params.resolutions[i]),FindAllMarkers(MergedSO, only.pos = T, logfc.threshold = 0.3))
+    marker_ls <- append(marker_ls, paste0("MarkersRes_Integrated",params.resolutions[i]))
+  }
+}  
+  
 ### Find Clusters and Generated Markers
 for(i in 1:length(params.resolutions)){
     print(paste0("Finding Markers at ",params.resolutions[i]," resolution..."))
-    if(params.integration ==T){
-        Idents(MergedSO) <- paste0(params.integrationMethod,"Res.",params.resolutions[i])
-    }else{
-        Idents(MergedSO) <- paste0(params.cluster_prefix,params.resolutions[i])
-    }
+    Idents(MergedSO) <- paste0(params.cluster_prefix,params.resolutions[i])
     assign(paste0("MarkersRes",params.resolutions[i]),FindAllMarkers(MergedSO, only.pos = T, logfc.threshold = 0.3))
+    marker_ls <- append(marker_ls, paste0("MarkersRes",params.resolutions[i]))
 }
-
-MergedSO$unintegratedRes.0.05 <- NULL
-params.resolutions
+setwd(params.outdir)
 # Add in annotation info and output tsv files
-for(j in 1:length(params.resolutions)){
-    if (length(levels(factor(get(paste0("MarkersRes", params.resolutions[j]))$cluster))) <= 1) {
+for(j in 1:length(marker_ls)){
+    if (length(levels(factor(get(marker_ls[j])$cluster))) <= 1) {
       next
     }
-    print(paste0("Generating Markers tsv at ",params.resolutions[j]," resolution..."))
-    markertemp <- get(paste0("MarkersRes",params.resolutions[j]))
+    print(paste0("Generating Markers tsv at ",marker_ls[j]," resolution..."))
+    markertemp <- get(paste0(marker_ls[j]))
     markertemp <- markertemp  %>% arrange(cluster, desc(avg_log2FC))
     markertemp$markercall <- 1
     markertemp <- markertemp %>%
         mutate(markercall = ifelse(avg_log2FC >= 1.7 & markertemp$pct.1/markertemp$pct.2 >= 1.7 & -log10(markertemp$p_val_adj) >= 27, 1, 0))
-    assign(paste0("MarkersRes",params.resolutions[j]),markertemp)
-    write.table(get(paste0("MarkersRes",params.resolutions[j])), file = paste0("./markers/single_cell/",ifelse(params.integration ==T,paste0(" Integrated_", params.integrationMethod,"_"), "Unintegrated"),"MarkersRes",params.resolutions[j],".tsv"), sep = "\t", quote = F,row.names = F)
+    assign(marker_ls[j],markertemp)
+    write.table(get(marker_ls[j]), file = paste0("./markers/single_cell/",marker_ls[j],".tsv"), sep = "\t", quote = F,row.names = F)
     rm(markertemp)
 }
 ```

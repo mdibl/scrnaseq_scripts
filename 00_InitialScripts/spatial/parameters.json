@@ -1,12 +1,12 @@
 {
 	"working_dirs"  : ["/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/Neotenic",
-                            "/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/Metamorphic"],
+                            "/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/Tail"],
         
-        "out_dir"       : "/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/Neo_Meta_New",
+        "out_dir"       : "/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/Neo_limb_tail",
         "H5_directory"  : "./data",
         "H5_Name"       : "filtered_feature_bc_matrix.h5",
-        "SampleNames"   : ["neotenic", "metamorphic"],
-        "Project_Name"  : "pmurawala_009",
+        "SampleNames"   : ["neotenic_limb", "neotenic_tail"],
+        "Project_Name"  : "pmurawala_010",
        
         "SubsetGenes"   : false,
 	"FeatureFile"   : "./data/custom_features.tsv.gz",

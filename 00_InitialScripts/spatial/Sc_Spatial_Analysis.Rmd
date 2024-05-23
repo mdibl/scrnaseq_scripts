@@ -571,11 +571,6 @@ MergedSO <- FindClusters(MergedSO, resolution = params.resolutions, cluster.name
 ```{r}
 setwd(params.outdir)
 
-MergedSO <- LoadSeuratRds(file = "~/Desktop/mdibl/wd/spat/P_Murawala_001/Neo_limb_tail/RDSObjects/single_cell/pmurawala_009SO.rds")
-
-setwd(params.outdir)
-params.integration <- T
-
 key <- T
 integrated <- F
 while (key) {
@@ -864,27 +859,55 @@ cell_cluster_idents <- FetchData(MergedSO, vars = resolutions)
 umap <- MergedSO@reductions$umap.unintegrated@cell.embeddings
 tsne <- MergedSO@reductions$tsne.unintegrated@cell.embeddings
 
+if (params.integration){
+  umap.i <- MergedSO@reductions$umap.integrated@cell.embeddings
+  tsne.i <- MergedSO@reductions$tsne.integrated@cell.embeddings
+}
+
 if (!dir.exists("projections")) {
   dir.create("projections")
 }
 
-slice_id <- function(string) {
+slice_id <- function(string, count) {
   tmp_str <- stri_reverse(string)
   underscore_index <- gregexpr("_", tmp_str)[[1]]
   print(tmp_str)
   sliced_string <- substr(tmp_str, start = 1, stop = underscore_index-1)
   sliced_string <- stri_reverse(sliced_string)
+  sliced_string <- substr(sliced_string, start = 1, stop = nchar(sliced_string)-2)
+  sliced_string <- paste0(sliced_string, "-", count)
   return(sliced_string)
 }
 
 
 if (length(SeuratObjList) > 1){
-for (name in params.SampleNames) {
-  rows <- which(grepl(name, rownames(cell_cluster_idents)))
-  tmp <- cell_cluster_idents[rows,]
-  rownames(tmp) <- lapply(rownames(tmp), slice_id)
-  write.csv(tmp, file = paste0("projections/seurat_clusters.", name,".csv"), col.names = NA, quote = FALSE, row.names = TRUE)
-}
+  counter <- 1
+  combined_clust <- as.data.frame(matrix(nrow = 0, ncol = ncol(cell_cluster_idents)))
+  combined_umap <- as.data.frame(matrix(nrow = 0, ncol = ncol(cell_cluster_idents)))
+  combined_tsne <- as.data.frame(matrix(nrow = 0, ncol = ncol(cell_cluster_idents)))
+  for (name in params.SampleNames) {
+    rows_clust <- which(grepl(name, rownames(cell_cluster_idents)))
+    tmp_clust <- cell_cluster_idents[rows_clust,]
+    rownames(tmp_clust) <- lapply(rownames(tmp_clust), slice_id, count=counter)
+    rows_umap <- which(grepl(name, rownames(umap)))
+    tmp_umap <- umap[rows_umap,]
+    rownames(tmp_umap) <- lapply(rownames(tmp_umap), slice_id, count=counter)
+    rows_tsne <- which(grepl(name, rownames(tsne)))
+    tmp_tsne <- tsne[rows_tsne,]
+    rownames(tmp_tsne) <- lapply(rownames(tmp_tsne), slice_id, count=counter)
+    combined_clust <- rbind(combined_clust, tmp_clust)
+    combined_umap <- rbind(combined_umap, tmp_umap)
+    combined_tsne <- rbind(combined_tsne, tmp_tsne)
+    counter <- counter + 1
+  }
+  write.csv(combined_clust, file = "projections/seurat_clusters.csv", col.names = NA, quote = FALSE, row.names = TRUE)
+  write.csv(combined_umap, file = paste0("projections/seurat_umap.", params.ProjectName,".csv"), col.names = NA, quote = FALSE, row.names = TRUE)
+  write.csv(combined_tsne, file = paste0("projections/seurat_tsne.", params.ProjectName,".csv"), col.names = NA, quote = FALSE, row.names = TRUE)
+  if (params.integration){
+    write.csv(umap, file = paste0("projections/seurat_umap.integrated", params.ProjectName,".csv"), col.names = NA, quote = FALSE, row.names = TRUE)
+  write.csv(tsne, file = paste0("projections/seurat_tsne.integrated", params.ProjectName,".csv"), col.names = NA, quote = FALSE, row.names = TRUE)
+  }
+  
 }else {
 write.csv(umap, file = paste0("projections/seurat_umap.", params.ProjectName,".csv"), col.names = NA, quote = FALSE, row.names = TRUE)
 write.csv(tsne, file = paste0("projections/seurat_tsne.", params.ProjectName,".csv"), col.names = NA, quote = FALSE, row.names = TRUE)

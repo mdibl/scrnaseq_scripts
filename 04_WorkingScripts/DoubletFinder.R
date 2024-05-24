@@ -26,8 +26,12 @@ library(SeuratWrappers)
 library(Seurat.utils)
 library(SingleCellExperiment)
 library(gprofiler2)
+library(ggplot2)
+library(ggsankey)
+library(DoubletFinder)
 library(stringr)
 library(patchwork)
+library(loupeR)
 library(presto)
 
 ##################################
@@ -41,9 +45,14 @@ params.SeuratObject <- args[1]
 
 # Variables To Regress in the Scaling
 params.VarsToRegress <- args[2]
+params.VarsToRegress <- unlist(strsplit(params.VarsToRegress, ","))
+print(params.VarsToRegress)
 
 # Number of PCs to use, default to auto
 params.PCs <- args[3]
+if (params.PCs != "auto"){
+    params.PCs <- as.integer(params.PCs)
+}
 
 # Data Dir
 params.DataDir <- args[4]
@@ -93,7 +102,7 @@ samp <- FindClusters(samp)
 samp <- RunUMAP(samp, dims = 1:params.pcMax, reduction = "pca")
 
 # Get the number of recovered cells
-params.CellsRecovered <- length(readLines((paste0(params.DataDir,list.files(path = params.DataDir, pattern = "barcodes")))))
+params.CellsRecovered <- length(readLines((paste0(params.DataDir,"/",list.files(path = params.DataDir, pattern = "barcodes")))))
 
 #####################
 # Identify Doublets #
@@ -116,24 +125,25 @@ samp <- doubletFinder(samp,
                       pK = pK,
                       nExp = nExp_poi.adj,
                       reuse.pANN = F,
-                      sct = F))
+                      sct = F)
 
 
 # Visualize and Count Doublets
-doubletmeta <- as.character(colnames(samp[[grep("DF",(colnames(get(samp)[[]])))]]))
-DimPlot(samp, group.by = doubletmeta)+ ggtitle(samp)
+doubletmeta <- as.character(colnames(samp[[grep("DF",(colnames(samp[[]])))]]))
 pdf(paste0(params.sampleName,"VisualizeDoublets.pdf"), width = 20, height = 15)
+DimPlot(samp, group.by = doubletmeta)+ ggtitle(params.sampleName)
+dev.off()
 DoubletCount <- table(samp[[doubletmeta]])
 
 ########################
 # Subset Seurat Object #
 ########################
-samp <- subset(samp, subset = !!as.name(doubletmeta) == "Singlet"  ))
+samp <- subset(samp, subset = !!as.name(doubletmeta) == "Singlet"  )
 
 ######################
 # Save Seuart Object #
 ######################
-SaveSeuratRds(get(samp), file = paste0(params.sampleName, "_SO.rds"))
+SaveSeuratRds(samp, file = paste0(params.sampleName, "_DoubletsRemoved.rds"))
 
 sink(paste0(params.sampleName,"validation.log"))
 

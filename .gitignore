@@ -1,2 +1,12 @@
 # ignore all .DS_Store files
+<<<<<<< Updated upstream
 *.DS_Store
+=======
+.DS_Store
+.RData
+.Rhistory
+.Rproj.user/
+*.Rproj
+*.rds
+*.pdf
+>>>>>>> Stashed changes

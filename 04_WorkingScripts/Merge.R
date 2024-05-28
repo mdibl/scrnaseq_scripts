@@ -43,7 +43,9 @@ args <- commandArgs(trailingOnly = TRUE)
 params.ProjectName <- args[1]
 
 # Variable To Regress For Scaling
-params.vars2regress <- args[2]
+params.VarsToRegress <- args[2]
+params.VarsToRegress <- unlist(strsplit(params.VarsToRegress, ","))
+print(params.VarsToRegress)
 
 ##############################################
 # Read in and Merge Seurat Objects from .rds #
@@ -96,21 +98,18 @@ dev.off()
 # Scale Merged Seurat Object #
 ##############################
 all.genes <- rownames(MergedSO)
-MergedSO = ScaleData(MergedSO, features = all.genes ,vars.to.regress = c("nCount_RNA","nFeature_RNA","percent.mt","S.Score", "G2M.Score")) 
+MergedSO = ScaleData(MergedSO, features = all.genes ,vars.to.regress = params.VarsToRegress)
 
 #############################################
 # Save Merged + Scaled Seurat Object to RDS #
 #############################################
-if(param.saveRdsSO == T){
-    if(!dir.exists("RDSObjects")){
-        dir.create("RDSObjects")
-    }
-    saveRDS(MergedSO, paste0(params.ProjectName,"SO.rds"))
-}
+
+saveRDS(MergedSO, paste0(params.ProjectName,"Merged_SO.rds"))
+
 
 sink("Mergedvalidation.log")
 
-print(get(MergedSO))
+print(MergedSO)
 
 sink()
 

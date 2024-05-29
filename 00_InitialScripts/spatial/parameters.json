@@ -1,8 +1,8 @@
 {
-	"working_dirs"  : ["/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/Neotenic",
-                            "/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/Metamorphic"],
+	"working_dirs"  : ["/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/K533-E_hyper",
+                            "/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/L166-A_hypo"],
         
-        "out_dir"       : "/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/Neotenic_Metamorphic",
+        "out_dir"       : "/Users/rgrindle/Desktop/mdibl/wd/spat/P_Murawala_001/Hyper_Hypo_MM",
         "H5_directory"  : "./data",
         "H5_Name"       : "filtered_feature_bc_matrix.h5",
         "SampleNames"   : ["neotenic", "metamorphic"],
@@ -18,7 +18,7 @@
         "nfeatureQuantile" : 0,
         "maxMitoPct"       : 10, 
 
-        "Organism"      : "Axolotl",
+        "Organism"      : "Mouse",
         "Mito_Genes"    : ["ND2","ND1","ND3","ND4","ND4L","ND5","ND6"],
         "Vars2Regress"  : ["nCount_RNA","nFeature_RNA","percent.mt"],
         "ClusterPrefix" : "Res.",

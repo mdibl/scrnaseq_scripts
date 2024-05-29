@@ -644,7 +644,7 @@ print(get(plot))
 dev.off()
 
 MergedSO[["RNA"]] <- JoinLayers(MergedSO[["RNA"]])
-
+params.integration <- json_data$Integrating
 
 ```
 
@@ -860,8 +860,8 @@ umap <- MergedSO@reductions$umap.unintegrated@cell.embeddings
 tsne <- MergedSO@reductions$tsne.unintegrated@cell.embeddings
 
 if (params.integration){
-  umap.i <- MergedSO@reductions$umap.integrated@cell.embeddings
-  tsne.i <- MergedSO@reductions$tsne.integrated@cell.embeddings
+  umap.i <- MergedSO@reductions$umap.Harmony@cell.embeddings
+  tsne.i <- MergedSO@reductions$tsne.Harmony@cell.embeddings
 }
 
 if (!dir.exists("projections")) {
@@ -885,6 +885,8 @@ if (length(SeuratObjList) > 1){
   combined_clust <- as.data.frame(matrix(nrow = 0, ncol = ncol(cell_cluster_idents)))
   combined_umap <- as.data.frame(matrix(nrow = 0, ncol = ncol(cell_cluster_idents)))
   combined_tsne <- as.data.frame(matrix(nrow = 0, ncol = ncol(cell_cluster_idents)))
+  combined_umap.i <- as.data.frame(matrix(nrow = 0, ncol = ncol(cell_cluster_idents)))
+  combined_tsne.i <- as.data.frame(matrix(nrow = 0, ncol = ncol(cell_cluster_idents)))
   for (name in params.SampleNames) {
     rows_clust <- which(grepl(name, rownames(cell_cluster_idents)))
     tmp_clust <- cell_cluster_idents[rows_clust,]
@@ -898,14 +900,24 @@ if (length(SeuratObjList) > 1){
     combined_clust <- rbind(combined_clust, tmp_clust)
     combined_umap <- rbind(combined_umap, tmp_umap)
     combined_tsne <- rbind(combined_tsne, tmp_tsne)
+    if (params.integration) {
+      rows_umap.i <- which(grepl(name, rownames(umap.i)))
+      tmp_umap.i <- umap.i[rows_umap.i,]
+      rownames(tmp_umap.i) <- lapply(rownames(tmp_umap.i), slice_id, count=counter)
+      rows_tsne.i <- which(grepl(name, rownames(tsne.i)))
+      tmp_tsne.i <- tsne.i[rows_tsne.i,]
+      rownames(tmp_tsne.i) <- lapply(rownames(tmp_tsne.i), slice_id, count=counter)
+      combined_umap.i <- rbind(combined_umap.i, tmp_umap.i)
+      combined_tsne.i <- rbind(combined_tsne.i, tmp_tsne.i)
+    }
     counter <- counter + 1
   }
   write.csv(combined_clust, file = "projections/seurat_clusters.csv", col.names = NA, quote = FALSE, row.names = TRUE)
   write.csv(combined_umap, file = paste0("projections/seurat_umap.", params.ProjectName,".csv"), col.names = NA, quote = FALSE, row.names = TRUE)
   write.csv(combined_tsne, file = paste0("projections/seurat_tsne.", params.ProjectName,".csv"), col.names = NA, quote = FALSE, row.names = TRUE)
   if (params.integration){
-    write.csv(umap, file = paste0("projections/seurat_umap.integrated", params.ProjectName,".csv"), col.names = NA, quote = FALSE, row.names = TRUE)
-  write.csv(tsne, file = paste0("projections/seurat_tsne.integrated", params.ProjectName,".csv"), col.names = NA, quote = FALSE, row.names = TRUE)
+    write.csv(combined_umap.i, file = paste0("projections/seurat_umap.integrated.", params.ProjectName,".csv"), col.names = NA, quote = FALSE, row.names = TRUE)
+  write.csv(combined_tsne.i, file = paste0("projections/seurat_tsne.integrated.", params.ProjectName,".csv"), col.names = NA, quote = FALSE, row.names = TRUE)
   }
   
 }else {

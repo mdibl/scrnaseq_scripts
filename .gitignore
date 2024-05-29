@@ -1,3 +1,9 @@
 # ignore all .DS_Store files
 *.DS_Store
 00_InitialScripts/spatial/parameters.json
+.DS_Store
+.RData
+.Rhistory
+.Rproj.user/
+*.Rproj
+*.pdf

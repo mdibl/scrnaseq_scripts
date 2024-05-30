@@ -106,7 +106,6 @@ if (length(rm_ind) > 0){
     SSE <- SSE[-rm_ind]
     deriv2_var <- deriv2_var[-rm_ind]
     idents <- idents[-rm_ind]
-    plot(SSE, deriv2_var)
     index <- which(SSE == min(SSE))
     ident <- paste0('loessS', idents[index])
 }else {
@@ -118,7 +117,7 @@ x = ElbowPoints$dims
 y = ElbowPoints$stdev
 df <- data.frame(x,y)
 
-pc_tbl <- findPC(sdev = ElbowPoints[[ident]], number = 100, method = "all", figure = T)
+pc_tbl <- findPC(sdev = ElbowPoints[[ident]], number = 100, method = "all", figure = F)
 params.pcMax <- mean(x = c(pc_tbl[1,2], pc_tbl[1,3], pc_tbl[1,4]))
 
 pdf(paste0(params.sampleName,"_ElbowPlot.pdf"), width = 20, height = 15)
@@ -132,15 +131,7 @@ ggplot(df, aes(x, y)) +
     ggtitle(paste0("Loess Regression of Std Dev ~ PC  :  PC Chosen = ", params.pcMax))
 dev.off()
 
-############ END OF NEW FIND PC
-
-
-
-
-
-
 # Find Neighbors 
-
 samp <- FindNeighbors(samp, dims = 1:params.pcMax, reduction = "pca")
 
 # Find Clusters

@@ -27,7 +27,6 @@ library(stringr)
 library(patchwork)
 library(loupeR)
 library(presto)
-library(smerc)
 library(findPC)
 
 ###################################
@@ -109,16 +108,8 @@ if (length(rm_ind) > 0){
 }
 
 if (toupper(params.pcMax) == "NULL"){
-  ### Identify the point where the Elbow Plot flattens out (Verify in Plot)
-  print(Elbow)
-  pcCount <- 1
-  print(pcCount)
-  while(ElbowPoints[[ident]][pcCount]-ElbowPoints[[ident]][pcCount+1]>0.05 | ElbowPoints[[ident]][pcCount+1]-ElbowPoints[[ident]][pcCount+2]>0.05){
-    pcCount <- pcCount + 1
-  }
-  
-  params.pcMax <- pcCount
-
+  pc_tbl <- findPC(sdev = ElbowPoints[[ident]], number = 100, method = "all", figure = T)
+  params.pcMax <- mean(x = c(pc_tbl[1,2], pc_tbl[1,3], pc_tbl[1,4]))
 }else{
   params.pcMax
 }
@@ -126,9 +117,6 @@ if (toupper(params.pcMax) == "NULL"){
 x = ElbowPoints$dims
 y = ElbowPoints$stdev
 df <- data.frame(x,y)
-
-pc_tbl <- findPC(sdev = ElbowPoints[[ident]], number = 100, method = "all", figure = T)
-params.pcMax <- mean(x = c(pc_tbl[1,2], pc_tbl[1,3], pc_tbl[1,4]))
 
 pdf(paste0(params.project_name,"_Merged_ElbowPlot.pdf"), width = 20, height = 15)
 ggplot(df, aes(x, y)) +
@@ -145,7 +133,7 @@ dev.off()
 # SAVE RDS #
 ############
 
-SaveSeuratRds(get(params.project_name), file = paste0(params.project_name, "_SO.rds"))
+SaveSeuratRds(SO, file = paste0(params.project_name, "_PCA.rds"))
 
 loess <- loess(stdev ~ dims,data=ElbowPoints, span = idents[index])
 my_summary <- summary(loess)

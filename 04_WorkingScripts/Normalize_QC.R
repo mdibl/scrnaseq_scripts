@@ -189,7 +189,7 @@ assign(NameSO, CellCycleScoring(get(NameSO), s.features = s_inSO, g2m.features =
 # SAVE OUTPUT #
 ###############
 
-SaveSeuratRds(get(NameSO), file = paste0(params.sample_name, "_SO.rds"))
+SaveSeuratRds(get(NameSO), file = paste0(params.sample_name, "_QC.rds"))
 
 sink(paste0(params.sample_name,".validation.log"))
 

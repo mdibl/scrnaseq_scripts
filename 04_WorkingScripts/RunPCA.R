@@ -27,7 +27,8 @@ library(stringr)
 library(patchwork)
 library(loupeR)
 library(presto)
-
+library(smerc)
+library(findPC)
 
 ###################################
 # READ IN PARAMS AND DIRECTORIES #
@@ -70,41 +71,49 @@ colors <- c('red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'turqu
 counter <- 1
 j <- order(ElbowPoints$dims)
 for (i in seq(0.1, 0.9, 0.1)){
-  lines(ElbowPoints$dims[j],ElbowPoints[paste0("loessS",i)][j],col=colors[counter],lwd=1)
+  lines(ElbowPoints$dims[j],ElbowPoints[,paste0("loessS",i)][j],col=colors[counter],lwd=1)
   counter <- counter + 1
 }
 
 for (i in seq(0.1, 0.9, 0.1)){
-  first_deriv <- diff(ElbowPoints$stdev)/diff(ElbowPoints$dims)
-  ElbowPoints[paste0("stddev_Der2_", i)][2:100] <- diff(first_deriv)/diff(ElbowPoints$dims)
+  first_deriv <- diff(ElbowPoints[,paste0("loessS", i)])/diff(ElbowPoints$dims)
+  ElbowPoints[3:100,paste0("stddev_Der2_", i)]<- (diff(first_deriv)/diff(ElbowPoints$dims))[1:length(diff(first_deriv)/diff(ElbowPoints$dims))-1]
 }
 
+columns <- colnames(ElbowPoints)
 idents <- seq(0.1, 0.9, 0.1)
 SSE <- c()
 deriv2_var <- c()
 for (item in columns){
   if (length(grep("Der2", item)) > 0){
-    variance <- var(Elbow_data[item], na.rm = T)
+    variance <- var(ElbowPoints[item], na.rm = T)
     deriv2_var <- append(deriv2_var, variance)
   }else if (length(grep("loess", item)) > 0 & !(length(grep("Der", item)) > 0)){
-    err <- Elbow_data[item] - Elbow_data$stdev
+    err <- ElbowPoints[item] - ElbowPoints$stdev
     norms <- sum(((err - min(err))**2)/((max(err) - min(err))**2))
     SSE <- append(SSE, norms)
   }
 }
 
-scores <- SSE + (deriv2_var * 10000)
-index <- which(scores == min(scores))
-ident <- idents[index]
-
-print(ident)
+rm_ind <- which(deriv2_var > 0.010)
+if (length(rm_ind) > 0){
+  SSE <- SSE[-rm_ind]
+  deriv2_var <- deriv2_var[-rm_ind]
+  idents <- idents[-rm_ind]
+  plot(SSE, deriv2_var)
+  index <- which(SSE == min(SSE))
+  ident <- paste0('loessS', idents[index])
+}else {
+  index <- 1
+  ident <- paste0('loessS', idents[index])
+}
 
 if (toupper(params.pcMax) == "NULL"){
   ### Identify the point where the Elbow Plot flattens out (Verify in Plot)
   print(Elbow)
   pcCount <- 1
   print(pcCount)
-  while(std_dev_data[pcCount]-std_dev_data[pcCount+1]>0.01 | std_dev_data[pcCount+1]-std_dev_data[pcCount+2]>0.01){
+  while(ElbowPoints[[ident]][pcCount]-ElbowPoints[[ident]][pcCount+1]>0.05 | ElbowPoints[[ident]][pcCount+1]-ElbowPoints[[ident]][pcCount+2]>0.05){
     pcCount <- pcCount + 1
   }
   
@@ -114,15 +123,22 @@ if (toupper(params.pcMax) == "NULL"){
   params.pcMax
 }
 
+x = ElbowPoints$dims
+y = ElbowPoints$stdev
+df <- data.frame(x,y)
+
+pc_tbl <- findPC(sdev = ElbowPoints[[ident]], number = 100, method = "all", figure = T)
+params.pcMax <- mean(x = c(pc_tbl[1,2], pc_tbl[1,3], pc_tbl[1,4]))
+
 pdf(paste0(params.project_name,"_Merged_ElbowPlot.pdf"), width = 20, height = 15)
 ggplot(df, aes(x, y)) +
   geom_point() +
-  geom_line(aes(x, std_dev_data)) +
+  geom_line(aes(x = seq(1,100), y = ElbowPoints[[ident]]), color = "green") +
   xlab("PC") +
   ylab("Std Dev") +
   geom_vline(xintercept = params.pcMax, linetype="dotted", 
-             color = "red", size=1.5)
-ggtitle("Polynomial Regression of Std Dev ~ PC")
+             color = "red", size=1.5) +
+  ggtitle(paste0("Loess Regression of Std Dev ~ PC  :  PC Chosen = ", params.pcMax))
 dev.off()
 
 ############
@@ -131,11 +147,18 @@ dev.off()
 
 SaveSeuratRds(get(params.project_name), file = paste0(params.project_name, "_SO.rds"))
 
+loess <- loess(stdev ~ dims,data=ElbowPoints, span = idents[index])
+my_summary <- summary(loess)
+
 sink(paste0(params.project_name,".validation.log"))
 
 print(get(params.project_name))
 cat("\n")
 print(my_summary)
+cat("\n")
+cat(paste0("First Derivative : ", pc_tbl[1,2], "\n"))
+cat(paste0("Second Derivative : ", pc_tbl[1,3], "\n"))
+cat(paste0("Preceding Residual : ", pc_tbl[1,4], "\n"))
 cat("\n")
 cat(paste0("PC Max Selected at: ", params.pcMax))
 

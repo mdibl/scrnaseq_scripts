@@ -1,8 +1,8 @@
 #!/usr/local/bin/Rscript
 
 
-# title: "SeuratV5_Normalize_QC.Rmd"
-# author: "Ryan Seaman"
+# title: "RunPCA.R"
+# author: "Riley Grindle"
 # date: "02/06/2024"
 
 ##################

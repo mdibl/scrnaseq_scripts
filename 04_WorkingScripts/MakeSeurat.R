@@ -60,8 +60,7 @@ params.min_features <- args[7]
 # ╔═══════════════════╗
 # ╠═ Subset Features ═╣
 # ╚═══════════════════╝
-
-if (toupper(params.genes_2_rm) == "[]"){
+if (toupper(params.genes_2_rm) == "NULL"){
   feature_list  <- read.csv(paste0(params.data_directory, "features.tsv.gz"), sep = "\t", header = F)
   new_feat_list <- feature_list
 }else{

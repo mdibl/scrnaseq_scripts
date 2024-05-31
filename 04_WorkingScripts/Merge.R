@@ -1,23 +1,21 @@
 #!/usr/local/bin/Rscript
 
-# title: "Merge.R"
-
-# function: 
-#   Takes all of the Seurat Objects (post Doublet Finder) 
-#   that belong to a specific `analysis group` and 
-#   runs the following steps: 
-#       - Merge
-#       - Find Variable Features
-#       - Generate QC Plots
-#       - Scale Data
-
-
-#############################################################################################################################################################################
-
-##################
-# LOAD LIBRARIES #
-##################
-
+# ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+# ╠═                                        Title: Merge.R                                      ═╣
+# ╠═                                     Updated: May 31 2024                                   ═╣
+# ╠══════════════════════════════════════════════════════════════════════════════════════════════╣
+# ╠═                                       nf-core/scscape                                      ═╣
+# ╠═                                  MDI Biological Laboratory                                 ═╣
+# ╠═                          Comparative Genomics and Data Science Core                        ═╣
+# ╠══════════════════════════════════════════════════════════════════════════════════════════════╣
+# ╠═ Description:                                                                               ═╣
+# ╠═     Takes all of the Seurat Objects post DoubletFinder.R that belong to a specific         ═╣
+# ╠═     analysis group and run them through the following steps: Merge, Find Variable Features ═╣
+# ╠═     Generate merged Quality Control Plots, and Scaling.                                    ═╣
+# ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+# ╔══════════════════╗
+# ╠═ Load Libraries ═╣
+# ╚══════════════════╝
 library(dplyr)
 library(Matrix)
 library(viridis)
@@ -33,10 +31,9 @@ library(stringr)
 library(patchwork)
 library(presto)
 
-##################################
-# READ IN PARAMS AND DIRECTORIES #
-##################################
-
+# ╔══════════════════════╗
+# ╠═ Read in Parameters ═╣
+# ╚══════════════════════╝
 args <- commandArgs(trailingOnly = TRUE)
 
 # Project Name for this analysis group
@@ -47,9 +44,9 @@ params.VarsToRegress <- args[2]
 params.VarsToRegress <- unlist(strsplit(params.VarsToRegress, ","))
 print(params.VarsToRegress)
 
-##############################################
-# Read in and Merge Seurat Objects from .rds #
-##############################################
+# ╔════════════════════╗
+# ╠═ Load Seurat .rds ═╣
+# ╚════════════════════╝
 SeuratRDSfiles <- list.files(pattern = "\\.rds$", ignore.case = T)
 
 SampleNames <- c()
@@ -72,19 +69,15 @@ while (count <= countMax){
 MergedSO <- merge(get(SampleNames[1]), y= SOlist2up, add.cell.ids = SampleNames, project = params.ProjectName)
 MergedSO
 
-##################################
-# Normalize Merged Seurat Object #
-##################################
+# ╔═══════════════════════════════════════════╗
+# ╠═ Normalize Data & Find Variable Features ═╣
+# ╚═══════════════════════════════════════════╝
 MergedSO <- NormalizeData(MergedSO)
-
-###############################################
-# Find Variable Genes on Merged Seurat Object #
-###############################################
 MergedSO <- FindVariableFeatures(MergedSO)
 
-################################################
-#Save Visualization of Merged Post Filter Plot #
-################################################
+# ╔═════════════════════════════════════╗
+# ╠═ Generate Merged Post-Filter Plots ═╣
+# ╚═════════════════════════════════════╝
 plot1 <- FeatureScatter(MergedSO, feature1 = "nCount_RNA", feature2 = "percent.mt", shuffle = T, group.by = "orig.ident")
 plot2 <- FeatureScatter(MergedSO, feature1 = "nCount_RNA", feature2 = "nFeature_RNA", shuffle = T, group.by = "orig.ident")
 vplot1 <- VlnPlot(MergedSO, features = c("nCount_RNA","nFeature_RNA","percent.mt"),pt.size = -1, group.by = "orig.ident")
@@ -94,23 +87,20 @@ plot1 + plot2
 vplot1
 dev.off()
 
-##############################
-# Scale Merged Seurat Object #
-##############################
+# ╔══════════════════════════════╗
+# ╠═ Scale Merged Seurat Object ═╣
+# ╚══════════════════════════════╝
 all.genes <- rownames(MergedSO)
 MergedSO = ScaleData(MergedSO, features = all.genes ,vars.to.regress = params.VarsToRegress)
 
-#############################################
-# Save Merged + Scaled Seurat Object to RDS #
-#############################################
-
+# ╔══════════════════════╗
+# ╠═ Save Seurat Object ═╣
+# ╚══════════════════════╝
 saveRDS(MergedSO, paste0(params.ProjectName,"Merged_SO.rds"))
 
-
+# ╔═════════════════╗
+# ╠═ Save Log File ═╣
+# ╚═════════════════╝
 sink("Mergedvalidation.log")
-
 print(MergedSO)
-
 sink()
-
-

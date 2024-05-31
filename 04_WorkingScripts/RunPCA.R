@@ -1,14 +1,22 @@
 #!/usr/local/bin/Rscript
 
-
-# title: "RunPCA.R"
-# author: "Riley Grindle"
-# date: "02/06/2024"
-
-##################
-# LOAD LIBRARIES #
-##################
-
+# ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+# ╠═                                       Title: RunPCA.R                                      ═╣
+# ╠═                                     Updated: May 31 2024                                   ═╣
+# ╠══════════════════════════════════════════════════════════════════════════════════════════════╣
+# ╠═                                       nf-core/scscape                                      ═╣
+# ╠═                                  MDI Biological Laboratory                                 ═╣
+# ╠═                          Comparative Genomics and Data Science Core                        ═╣
+# ╠══════════════════════════════════════════════════════════════════════════════════════════════╣
+# ╠═ Description:                                                                               ═╣
+# ╠═     Takes in the Merged Seurat Object generated from Merge.R. PCA is run on the Seurat     ═╣
+# ╠═     Object and then a max PC value is selected for follow on steps. The max PC value is    ═╣
+# ╠═     selected by smoothing the elbow plot and then averaging the first derivative, second   ═╣
+# ╠═     derivative and preceding residual selection from FindPC.                               ═╣
+# ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+# ╔══════════════════╗
+# ╠═ Load Libraries ═╣
+# ╚══════════════════╝
 library(dplyr)
 library(Matrix)
 library(viridis)
@@ -29,10 +37,9 @@ library(loupeR)
 library(presto)
 library(findPC)
 
-###################################
-# READ IN PARAMS AND DIRECTORIES #
-##################################
-
+# ╔══════════════════════╗
+# ╠═ Read in Parameters ═╣
+# ╚══════════════════════╝
 args <- commandArgs(trailingOnly = TRUE)
 
 # Load RDS
@@ -46,32 +53,21 @@ params.project_name <- args[3]
 
 assign(params.project_name, rds)
 
-###########
-# RUN PCA #
-###########
-
+# ╔═══════════╗
+# ╠═ Run PCA ═╣
+# ╚═══════════╝
 all.genes <- rownames(get(params.project_name))
 SO <- RunPCA(get(params.project_name), features = all.genes, npcs = 100)
 
-###############
-# FIND MAX PC #
-###############
-
+# ╔═══════════════╗
+# ╠═ Find PC Max ═╣
+# ╚═══════════════╝
 Elbow <- ElbowPlot(SO,  ndims = 100, reduction = "pca")
 ElbowPoints <- Elbow$data
 
 for (i in seq(0.1, 0.9, 0.1)){
   loess <- loess(stdev ~ dims,data=ElbowPoints, span = i)
   ElbowPoints[paste0("loessS", i)] <- loess$fitted
-}
-
-plot(stdev ~ dims,data=ElbowPoints,pch=19,cex=0.1)
-colors <- c('red', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'turquoise', 'brown')
-counter <- 1
-j <- order(ElbowPoints$dims)
-for (i in seq(0.1, 0.9, 0.1)){
-  lines(ElbowPoints$dims[j],ElbowPoints[,paste0("loessS",i)][j],col=colors[counter],lwd=1)
-  counter <- counter + 1
 }
 
 for (i in seq(0.1, 0.9, 0.1)){
@@ -99,7 +95,6 @@ if (length(rm_ind) > 0){
   SSE <- SSE[-rm_ind]
   deriv2_var <- deriv2_var[-rm_ind]
   idents <- idents[-rm_ind]
-  plot(SSE, deriv2_var)
   index <- which(SSE == min(SSE))
   ident <- paste0('loessS', idents[index])
 }else {
@@ -129,17 +124,18 @@ ggplot(df, aes(x, y)) +
   ggtitle(paste0("Loess Regression of Std Dev ~ PC  :  PC Chosen = ", params.pcMax))
 dev.off()
 
-############
-# SAVE RDS #
-############
-
+# ╔══════════════════════╗
+# ╠═ Save Seurat Object ═╣
+# ╚══════════════════════╝
 SaveSeuratRds(SO, file = paste0(params.project_name, "_PCA.rds"))
 
+
+# ╔═════════════════╗
+# ╠═ Save Log File ═╣
+# ╚═════════════════╝
 loess <- loess(stdev ~ dims,data=ElbowPoints, span = idents[index])
 my_summary <- summary(loess)
-
 sink(paste0(params.project_name,".validation.log"))
-
 print(get(params.project_name))
 cat("\n")
 print(my_summary)
@@ -149,9 +145,4 @@ cat(paste0("Second Derivative : ", pc_tbl[1,3], "\n"))
 cat(paste0("Preceding Residual : ", pc_tbl[1,4], "\n"))
 cat("\n")
 cat(paste0("PC Max Selected at: ", params.pcMax))
-
 sink()
-
-
-
-

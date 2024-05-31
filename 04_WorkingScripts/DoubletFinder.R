@@ -1,20 +1,21 @@
 #!/usr/local/bin/Rscript
 
-# title: "Doublet_Finder.R"
-
-# function: 
-#   Takes the single sample Seurat objects through a 
-#   process of finding doublets (Using Doublet Finder)
-#   and removing the predicted doublets based on the 
-#   expected number of cells for the sample. 
-
-
-#############################################################################################################################################################################
-
-##################
-# LOAD LIBRARIES #
-##################
-
+# ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+# ╠═                                    Title: DoubletFinder.R                                  ═╣
+# ╠═                                     Updated: May 31 2024                                   ═╣
+# ╠══════════════════════════════════════════════════════════════════════════════════════════════╣
+# ╠═                                       nf-core/scscape                                      ═╣
+# ╠═                                  MDI Biological Laboratory                                 ═╣
+# ╠═                          Comparative Genomics and Data Science Core                        ═╣
+# ╠══════════════════════════════════════════════════════════════════════════════════════════════╣
+# ╠═ Description:                                                                               ═╣
+# ╠═     Takes in the Seurat Object generated from Normalize_QC.R and runs through a process    ═╣
+# ╠═     to identify Doublets within the sample. This is run and is reliant on the number of    ═╣
+# ╠═     cells recovered and the 10X published doublet rate.                                    ═╣
+# ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+# ╔══════════════════╗
+# ╠═ Load Libraries ═╣
+# ╚══════════════════╝
 library(dplyr)
 library(Matrix)
 library(viridis)
@@ -35,10 +36,9 @@ library(loupeR)
 library(presto)
 library(findPC)
 
-##################################
-# READ IN PARAMS AND DIRECTORIES #
-##################################
-
+# ╔══════════════════════╗
+# ╠═ Read in Parameters ═╣
+# ╚══════════════════════╝
 args <- commandArgs(trailingOnly = TRUE)
 
 # RDS file from QC
@@ -55,10 +55,9 @@ params.DataDir <- args[3]
 # SampleName
 params.sampleName <- args[4]
 
-#############################
-# Find Doublets Preperation #
-#############################
-
+# ╔═════════════════════════════════╗
+# ╠═ Preparation for Find Doublets ═╣
+# ╚═════════════════════════════════╝
 # read in .rds  
 samp <- readRDS(params.SeuratObject)
 
@@ -67,7 +66,6 @@ all.genes <- rownames(samp)
 
 # Scale Data
 samp <- ScaleData(samp, features = all.genes ,vars.to.regress = params.VarsToRegress)
-
 
 # Run PCA on individual samples
 samp <- RunPCA(samp, features = all.genes ,npcs = 100)
@@ -143,9 +141,9 @@ samp <- RunUMAP(samp, dims = 1:params.pcMax, reduction = "pca")
 # Get the number of recovered cells
 params.CellsRecovered <- length(readLines((paste0(params.DataDir,"/",list.files(path = params.DataDir, pattern = "barcodes")))))
 
-#####################
-# Identify Doublets #
-#####################
+# ╔═════════════════════╗
+# ╠═ Identify Doublets ═╣
+# ╚═════════════════════╝
 #    (Percent Doublet is calculated based on a 0.8% increase per 1000 cells recovered as per the 10X website.)
 sweep.res.list_meta <- paramSweep(samp, PCs = 1:params.pcMax, sct = F )
 sweep.stats_meta <- summarizeSweep(sweep.res.list_meta, GT = FALSE)
@@ -174,19 +172,20 @@ DimPlot(samp, group.by = doubletmeta)+ ggtitle(params.sampleName)
 dev.off()
 DoubletCount <- table(samp[[doubletmeta]])
 
-########################
-# Subset Seurat Object #
-########################
+# ╔═══════════════════════╗
+# ╠═ Subset out Doublets ═╣
+# ╚═══════════════════════╝
 samp <- subset(samp, subset = !!as.name(doubletmeta) == "Singlet"  )
 
-######################
-# Save Seuart Object #
-######################
+# ╔══════════════════════╗
+# ╠═ Save Seurat Object ═╣
+# ╚══════════════════════╝
 SaveSeuratRds(samp, file = paste0(params.sampleName, "_DoubletsRemoved.rds"))
 
+# ╔═════════════════╗
+# ╠═ Save Log File ═╣
+# ╚═════════════════╝
 sink(paste0(params.sampleName,"validation.log"))
-
 print(DoubletCount)
 samp
-
 sink()

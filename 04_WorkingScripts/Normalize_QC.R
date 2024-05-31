@@ -35,9 +35,9 @@ library(patchwork)
 library(loupeR)
 library(presto)
 
-# ╔═════════════════════╗
-# ╠═ Read in Parameter ═╣
-# ╚═════════════════════╝
+# ╔══════════════════════╗
+# ╠═ Read in Parameters ═╣
+# ╚══════════════════════╝
 args <- commandArgs(trailingOnly = TRUE)
 
 # Mitochondrial Genes

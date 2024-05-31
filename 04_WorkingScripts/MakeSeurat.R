@@ -61,12 +61,23 @@ params.min_features <- args[7]
 # ╠═ Subset Features ═╣
 # ╚═══════════════════╝
 if (toupper(params.genes_2_rm) == "NULL"){
-  feature_list  <- read.csv(paste0(params.data_directory, "features.tsv.gz"), sep = "\t", header = F)
-  new_feat_list <- feature_list
+  if (substr(params.data_directory, nchar(params.data_directory), nchar(params.data_directory)) == "/"){
+    feature_list  <- read.csv(paste0(params.data_directory, "features.tsv.gz"), sep = "\t", header = F)
+    new_feat_list <- feature_list
+  }else {
+    feature_list  <- read.csv(paste0(params.data_directory, "/features.tsv.gz"), sep = "\t", header = F)
+    new_feat_list <- feature_list
+  }
 }else{
-  gene_list     <- read.csv(params.genes_2_rm, sep = "\t", header = F)
-  feature_list  <- read.csv(paste0(params.data_directory, "features.tsv"), sep = "\t", header = F)
-  new_feat_list <- feature_list[-c(which(feature_list %in% gene_list))]
+  if (substr(params.data_directory, nchar(params.data_directory), nchar(params.data_directory)) == "/"){
+    gene_list     <- read.csv(params.genes_2_rm, sep = "\t", header = F)
+    feature_list  <- read.csv(paste0(params.data_directory, "features.tsv"), sep = "\t", header = F)
+    new_feat_list <- feature_list[-c(which(feature_list %in% gene_list))]
+  }else{
+    gene_list     <- read.csv(params.genes_2_rm, sep = "\t", header = F)
+    feature_list  <- read.csv(paste0(params.data_directory, "/features.tsv"), sep = "\t", header = F)
+    new_feat_list <- feature_list[-c(which(feature_list %in% gene_list))]
+  }
 }
 
 # ╔════════════════════════════════╗

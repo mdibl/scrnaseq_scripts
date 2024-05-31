@@ -1,16 +1,20 @@
 #!/usr/local/bin/Rscript
 
-
-# title: "SeuratV5_Normalize_QC.Rmd"
-# author: "Ryan Seaman"
-# date: "02/06/2024"
-
-#############################################################################################################################################################################
-
-##################
-# LOAD LIBRARIES #
-##################
-
+# ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+# ╠═                                     Title: MakeSeurat.R                                    ═╣
+# ╠═                                     Updated: May 31 2024                                   ═╣
+# ╠══════════════════════════════════════════════════════════════════════════════════════════════╣
+# ╠═                                       nf-core/scscape                                      ═╣
+# ╠═                                  MDI Biological Laboratory                                 ═╣
+# ╠═                          Comparative Genomics and Data Science Core                        ═╣
+# ╠══════════════════════════════════════════════════════════════════════════════════════════════╣
+# ╠═ Description:                                                                               ═╣
+# ╠═     Takes the raw count data (features, barcodes, matrix) and generates a Seurat           ═╣
+# ╠═     Object. Options to subset features are avalible.                                       ═╣
+# ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+# ╔══════════════════╗
+# ╠═ Load Libraries ═╣
+# ╚══════════════════╝
 library(dplyr)
 library(Matrix)
 library(viridis)
@@ -26,13 +30,13 @@ library(stringr)
 library(patchwork)
 library(presto)
 
-##################################
-# READ IN PARAMS AND DIRECTORIES #
-##################################
-
+# ╔══════════════════════╗
+# ╠═ Read in Parameters ═╣
+# ╚══════════════════════╝
+# Read in trailing arguments
 args <- commandArgs(trailingOnly = TRUE)
 
-# File path to features, barcodes, mtx
+# File path to features, barcodes, mtx directory
 params.data_directory <- args[1]
 
 # Which column to use for Seurat Obj. instantiation
@@ -53,11 +57,11 @@ params.min_cells <- args[6]
 # Min Features
 params.min_features <- args[7]
 
-######################
-# FEATURE SUBSETTING #
-######################
+# ╔═══════════════════╗
+# ╠═ Subset Features ═╣
+# ╚═══════════════════╝
 
-if (toupper(params.genes_2_rm) == "NULL"){
+if (toupper(params.genes_2_rm) == "[]"){
   feature_list  <- read.csv(paste0(params.data_directory, "features.tsv.gz"), sep = "\t", header = F)
   new_feat_list <- feature_list
 }else{
@@ -66,10 +70,9 @@ if (toupper(params.genes_2_rm) == "NULL"){
   new_feat_list <- feature_list[-c(which(feature_list %in% gene_list))]
 }
 
-################################
-# CREATE 10X OBJECT AND SUBSET #
-################################
-
+# ╔════════════════════════════════╗
+# ╠═ Create 10X Object and Subset ═╣
+# ╚════════════════════════════════╝
 if (toupper(params.gene_identifier) == "GENE_ID"){
   params.gene_column <- 1
 }else if (toupper(params.gene_identifier) == "GENE_NAME"){
@@ -78,33 +81,28 @@ if (toupper(params.gene_identifier) == "GENE_ID"){
   params.gene_column <- 2
 }
 
-# Create raw 10x object
+# Create raw 10X object
 Name10X <- params.sample_name
 assign(Name10X, Read10X(data.dir = params.data_directory, strip.suffix = T, gene.column = params.gene_column))
 
-# Subset 10x Object
+# Subset 10X Object
 Name10XAnnotated <- paste0(params.sample_name,"_Ann")
 assign(Name10XAnnotated, get(params.sample_name)[which(rownames(get(params.sample_name)) %in% new_feat_list[,params.gene_column]),])
 
-########################
-# CREATE SEURAT OBJECT #
-########################
-
+# ╔════════════════════════╗
+# ╠═ Create Seurat Object ═╣
+# ╚════════════════════════╝
 NameSO <- paste0("SO_",params.sample_name)
 assign(NameSO, CreateSeuratObject(counts = get(Name10XAnnotated), project = params.project_name, min.cells = params.min_cells, min.features = params.min_features, ))
 
-###############
-# SAVE OUTPUT #
-###############
-
+# ╔══════════════════════╗
+# ╠═ Save Seurat Object ═╣
+# ╚══════════════════════╝
 SaveSeuratRds(get(NameSO), file = paste0(params.sample_name, "_SO.rds"))
 
+# ╔═════════════════╗
+# ╠═ Save Log File ═╣
+# ╚═════════════════╝
 sink(paste0(params.sample_name,".validation.log"))
-
 print(get(NameSO))
-
 sink()
-
-#####################################################################################################################################################################################
-
-

@@ -41,7 +41,7 @@ args <- commandArgs(trailingOnly = TRUE)
 # RDS file from QC
 params.SeuratObject <- args[1]
 
-# Integration Method: Options( CCA, RPCA, Harmony, FastMNN, NULL) where NULL is to not run
+# Resolutions
 params.Resolutions <- args[2]
 params.Resolutions <- as.numeric(unlist(strsplit(params.Resolutions, ",")))
 print(params.Resolutions)

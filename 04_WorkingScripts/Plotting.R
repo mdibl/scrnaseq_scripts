@@ -1,0 +1,183 @@
+#!/usr/local/bin/Rscript
+
+# title: "Plotting.R"
+
+# function: 
+#   Takes the Seurat Object post FindNeighborsClustersMarkers rds
+#   and Runs UMAP and TSNE, makes preliminary plots, and create
+#   Loupe File.
+
+#############################################################################################################################################################################
+
+##################
+# LOAD LIBRARIES #
+##################
+
+library(dplyr)
+library(Matrix)
+library(viridis)
+library(tidyverse)
+library(Seurat)
+library(SeuratData)
+library(SeuratObject)
+library(SeuratWrappers)
+library(Seurat.utils)
+library(SingleCellExperiment)
+library(gprofiler2)
+library(ggplot2)
+library(ggsankey)
+library(DoubletFinder)
+library(stringr)
+library(patchwork)
+library(loupeR)
+library(presto)
+
+##################################
+# READ IN PARAMS AND DIRECTORIES #
+##################################
+
+args <- commandArgs(trailingOnly = TRUE)
+
+# RDS file from QC
+params.SeuratObject <- args[1]
+
+# Resolutions
+params.Resolutions <- args[2]
+params.Resolutions <- as.numeric(unlist(strsplit(params.Resolutions, ",")))
+print(params.Resolutions)
+
+# PC Max
+params.pcMax <- as.integer(args[3])
+
+# Integration Method: Options( CCA, RPCA, Harmony, FastMNN, NULL) where NULL is to not run
+params.IntegrationMethod <- args[4]
+
+# Project Name
+params.ProjectName <- args[5]
+
+# Make Loupe File T/F
+params.MakeLoupe <- args[6]
+
+
+################
+# Read in .rds # 
+################
+MergedSO <- readRDS(params.SeuratObject)
+
+######################
+# Make UMAP and TSNE #
+######################
+MergedSO <- RunUMAP(MergedSO, dims = 1:params.pcMax, reduction = "pca", reduction.name = "umap.unintegrated")
+if(params.IntegrationMethod != "NULL" ){
+    MergedSO <- RunUMAP(MergedSO, dims = 1:params.pcMax, reduction = paste0("integrated.",params.IntegrationMethod), reduction.name = paste0("umap.",params.IntegrationMethod))
+}
+MergedSO <- RunTSNE(MergedSO, dims = 1:params.pcMax, reduction = "pca", reduction.name = "tsne.unintegrated")
+if(params.IntegrationMethod != "NULL" ){
+    MergedSO <- RunTSNE(MergedSO, dims = 1:params.pcMax, reduction = paste0("integrated.",params.IntegrationMethod), reduction.name = paste0("tsne.",params.IntegrationMethod))
+}
+
+# Set Front Page Layout
+Page1layout <- "
+AAAAAA
+AAAAAA
+AAAAAA
+BBCCDD
+"
+
+##########################
+# Plot Unintegrated UMAP #
+##########################
+p1 <- DimPlot(object = MergedSO, reduction = 'umap.unintegrated', pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = "orig.ident", shuffle = T)
+p2 <- FeaturePlot(MergedSO, reduction = "umap.unintegrated", pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "nFeature_RNA", order = T) + scale_color_viridis(limits =c(min(MergedSO$nFeature_RNA),max(MergedSO$nFeature_RNA)), direction = -1)
+p3 <- FeaturePlot(MergedSO, reduction = "umap.unintegrated", pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "nCount_RNA", order = T) + scale_color_viridis(limits =c(min(MergedSO$nCount_RNA),max(MergedSO$nCount_RNA)), direction = -1)
+p4 <- FeaturePlot(MergedSO, reduction = "umap.unintegrated", pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "percent.mt", order = T) + scale_color_viridis(limits =c(min(MergedSO$percent.mt),max(MergedSO$percent.mt)), direction = -1)
+
+pdf(paste0(params.ProjectName,"UnintegratedUMAP.pdf"),width = 20, height = 15)
+p1 + p2 + p3 + p4 + plot_layout(design = Page1layout)
+for (i in params.Resolutions){
+    print(DimPlot(object = MergedSO, reduction = 'umap.unintegrated', pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = paste0("unintegratedRes.",i), shuffle = T))
+}
+dev.off()
+
+
+##########################
+# Plot Unintegrated TSNE #
+##########################
+p1 <- DimPlot(object = MergedSO, reduction = 'tsne.unintegrated', pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = "orig.ident", shuffle = T)
+p2 <- FeaturePlot(MergedSO, reduction = "tsne.unintegrated", pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "nFeature_RNA", order = T) + scale_color_viridis(limits =c(min(MergedSO$nFeature_RNA),max(MergedSO$nFeature_RNA)), direction = -1)
+p3 <- FeaturePlot(MergedSO, reduction = "tsne.unintegrated", pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "nCount_RNA", order = T) + scale_color_viridis(limits =c(min(MergedSO$nCount_RNA),max(MergedSO$nCount_RNA)), direction = -1)
+p4 <- FeaturePlot(MergedSO, reduction = "tsne.unintegrated", pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "percent.mt", order = T) + scale_color_viridis(limits =c(min(MergedSO$percent.mt),max(MergedSO$percent.mt)), direction = -1)
+
+pdf(paste0(params.ProjectName,"UnintegratedTSNE.pdf"),width = 20, height = 15)
+p1 + p2 + p3 + p4 + plot_layout(design = Page1layout)
+for (i in params.Resolutions){
+    print(DimPlot(object = MergedSO, reduction = 'tsne.unintegrated', pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = paste0("unintegratedRes.",i), shuffle = T))
+}
+dev.off()
+
+########################
+# Plot Integrated UMAP # (if true)
+########################
+pdf(paste0(params.ProjectName,params.IntegrationMethod,"IntegratedUMAP.pdf"),width = 20, height = 15)
+if (params.IntegrationMethod != "NULL"){
+    p1 <- DimPlot(object = MergedSO, reduction = paste0("umap.",params.IntegrationMethod), pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = "orig.ident", shuffle = T)
+    p2 <- FeaturePlot(MergedSO, reduction = paste0("umap.",params.IntegrationMethod), pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "nFeature_RNA", order = T) + scale_color_viridis(limits =c(min(MergedSO$nFeature_RNA),max(MergedSO$nFeature_RNA)), direction = -1)
+    p3 <- FeaturePlot(MergedSO, reduction = paste0("umap.",params.IntegrationMethod), pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "nCount_RNA", order = T) + scale_color_viridis(limits =c(min(MergedSO$nCount_RNA),max(MergedSO$nCount_RNA)), direction = -1)
+    p4 <- FeaturePlot(MergedSO, reduction = paste0("umap.",params.IntegrationMethod), pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "percent.mt", order = T) + scale_color_viridis(limits =c(min(MergedSO$percent.mt),max(MergedSO$percent.mt)), direction = -1)
+
+    print(p1 + p2 + p3 + p4 + plot_layout(design = Page1layout))
+    for (i in params.Resolutions){
+        print(DimPlot(object = MergedSO, reduction = paste0("umap.",params.IntegrationMethod), pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = paste0(params.IntegrationMethod,"Res.",i)))
+    }
+}
+dev.off()
+
+if(params.IntegrationMethod == "NULL"){
+    file.remove(paste0(params.ProjectName,params.IntegrationMethod,"IntegratedUMAP.pdf"))
+}
+
+########################
+# Plot Integrated TSNE # (if true)
+########################
+pdf(paste0(params.ProjectName,params.IntegrationMethod,"IntegratedTSNE.pdf"),width = 20, height = 15)
+if (params.IntegrationMethod != "NULL"){
+    p1 <- DimPlot(object = MergedSO, reduction = paste0("tsne.",params.IntegrationMethod), pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = "orig.ident", shuffle = T)
+    p2 <- FeaturePlot(MergedSO, reduction = paste0("tsne.",params.IntegrationMethod), pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "nFeature_RNA", order = T) + scale_color_viridis(limits =c(min(MergedSO$nFeature_RNA),max(MergedSO$nFeature_RNA)), direction = -1)
+    p3 <- FeaturePlot(MergedSO, reduction = paste0("tsne.",params.IntegrationMethod), pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "nCount_RNA", order = T) + scale_color_viridis(limits =c(min(MergedSO$nCount_RNA),max(MergedSO$nCount_RNA)), direction = -1)
+    p4 <- FeaturePlot(MergedSO, reduction = paste0("tsne.",params.IntegrationMethod), pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "percent.mt", order = T) + scale_color_viridis(limits =c(min(MergedSO$percent.mt),max(MergedSO$percent.mt)), direction = -1)
+    
+    print(p1 + p2 + p3 + p4 + plot_layout(design = Page1layout))
+    for (i in params.Resolutions){
+        print(DimPlot(object = MergedSO, reduction = paste0("tsne.",params.IntegrationMethod), pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = paste0(params.IntegrationMethod,"Res.",i)))
+    }
+}
+dev.off()
+
+if(params.IntegrationMethod == "NULL"){
+    file.remove(paste0(params.ProjectName,params.IntegrationMethod,"IntegratedTSNE.pdf"))
+}
+
+
+###################
+# Make Loupe File #
+###################
+if(params.MakeLoupe == "TRUE"){
+    create_loupe(count_mat = MergedSO@assays$RNA$counts,
+                 clusters = select_clusters(MergedSO),
+                 projections = select_projections(MergedSO),
+                 output_name = params.ProjectName
+    )
+}
+
+######################
+# Save Seuart Object #
+######################
+SaveSeuratRds(MergedSO, file = paste0(params.ProjectName, "_Final.rds"))
+
+sink(paste0(params.ProjectName,"validation.log"))
+
+MergedSO
+
+sink()
+
+

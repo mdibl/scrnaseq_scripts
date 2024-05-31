@@ -1,18 +1,20 @@
 #!/usr/local/bin/Rscript
 
-# title: "FindNeighborsClustersMarkers.R"
-
-# function: 
-#   Takes the Seurat Object post-integration (if run) and 
-#   finds neighbors, clusters, markers, and builds a sankey
-#   plot for unintegrated (and integrated if run).
-
-#############################################################################################################################################################################
-
-##################
-# LOAD LIBRARIES #
-##################
-
+# ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+# ╠═                           Title: FindNeighborsClustersMarkers.R                            ═╣
+# ╠═                                     Updated: May 31 2024                                   ═╣
+# ╠══════════════════════════════════════════════════════════════════════════════════════════════╣
+# ╠═                                       nf-core/scscape                                      ═╣
+# ╠═                                  MDI Biological Laboratory                                 ═╣
+# ╠═                          Comparative Genomics and Data Science Core                        ═╣
+# ╠══════════════════════════════════════════════════════════════════════════════════════════════╣
+# ╠═ Description:                                                                               ═╣
+# ╠═     Takes in the Seurat Object generated from Integration.R (if-run, else RunPCA.R). Runs  ═╣
+# ╠═     find neighbors, find clusters, find markers, and builds a Sankey Plot.                 ═╣
+# ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+# ╔══════════════════╗
+# ╠═ Load Libraries ═╣
+# ╚══════════════════╝
 library(dplyr)
 library(Matrix)
 library(viridis)
@@ -32,10 +34,9 @@ library(patchwork)
 library(loupeR)
 library(presto)
 
-##################################
-# READ IN PARAMS AND DIRECTORIES #
-##################################
-
+# ╔══════════════════════╗
+# ╠═ Read in Parameters ═╣
+# ╚══════════════════════╝
 args <- commandArgs(trailingOnly = TRUE)
 
 # RDS file from QC
@@ -55,24 +56,24 @@ params.IntegrationMethod <- args[4]
 # Project Name
 params.ProjectName <- args[5]
 
-######################
-# Create Directories #
-######################
+# ╔══════════════════════╗
+# ╠═ Create Directories ═╣
+# ╚══════════════════════╝
 dir.create("markers")
 dir.create("markers/unintegrated/")
 if (params.IntegrationMethod != "NULL"){
     dir.create("markers/integrated/")
 }
 
-################
-# Read in .rds # 
-################
+# ╔════════════════════╗
+# ╠═ Load Seurat .rds ═╣
+# ╚════════════════════╝
 MergedSO <- readRDS(params.SeuratObject)
 
 
-####################################
-# FIND NEIGHBORS AND FIND CLUSTERS #
-####################################
+# ╔════════════════════════════════════╗
+# ╠═ Find Neighbors and Find Clusters ═╣
+# ╚════════════════════════════════════╝
 # Generate Resolution Names -- unintegrated
 count <- 1
 countMax <- length(params.Resolutions)
@@ -107,9 +108,9 @@ if (params.IntegrationMethod != "NULL"){
     MergedSO <- FindClusters(MergedSO, resolution = params.Resolutions, cluster.name = params.IntegratedResolutionsNames)
 }
 
-###############
-# Sankey Plot # 
-###############
+# ╔════════════════════════╗
+# ╠═ Generate Sankey Plot ═╣
+# ╚════════════════════════╝
 mergedSOmetaRes <- MergedSO@meta.data
 mergedSOmetaRes <- mergedSOmetaRes[,grepl("^unintegratedRes",names(mergedSOmetaRes))]
 names(mergedSOmetaRes) <- gsub("unintegratedRes","res",names(mergedSOmetaRes))
@@ -214,14 +215,14 @@ if (params.IntegrationMethod != "NULL"){
     
 }
 dev.off()
-###############
-# Join Layers #
-###############
+# ╔═══════════════╗
+# ╠═ Join Layers ═╣
+# ╚═══════════════╝
 MergedSO[["RNA"]] <- JoinLayers(MergedSO[["RNA"]])
 
-####################################
-# Run Find Markers and Save Output #
-####################################
+# ╔════════════════════════════════════╗
+# ╠═ Find Markers and Save TSV output ═╣
+# ╚════════════════════════════════════╝
 for(i in 1:length(params.Resolutions)){
     print(paste0("Finding Unintegrated Markers at ",params.Resolutions[i]," resolution..."))
     Idents(MergedSO) <- paste0("unintegratedRes.",params.Resolutions[i])
@@ -262,14 +263,14 @@ if (params.IntegrationMethod != "NULL") {
     }
 }
 
-######################
-# Save Seuart Object #
-######################
+# ╔══════════════════════╗
+# ╠═ Save Seurat Object ═╣
+# ╚══════════════════════╝
 SaveSeuratRds(MergedSO, file = paste0(params.ProjectName, "_Clustered.rds"))
 
+# ╔═════════════════╗
+# ╠═ Save Log File ═╣
+# ╚═════════════════╝
 sink(paste0(params.ProjectName,"validation.log"))
-
 MergedSO
-
 sink()
-

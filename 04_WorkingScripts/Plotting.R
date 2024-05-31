@@ -1,18 +1,21 @@
 #!/usr/local/bin/Rscript
 
-# title: "Plotting.R"
-
-# function: 
-#   Takes the Seurat Object post FindNeighborsClustersMarkers rds
-#   and Runs UMAP and TSNE, makes preliminary plots, and create
-#   Loupe File.
-
-#############################################################################################################################################################################
-
-##################
-# LOAD LIBRARIES #
-##################
-
+# ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+# ╠═                                      Title: Plotting.R                                     ═╣
+# ╠═                                     Updated: May 31 2024                                   ═╣
+# ╠══════════════════════════════════════════════════════════════════════════════════════════════╣
+# ╠═                                       nf-core/scscape                                      ═╣
+# ╠═                                  MDI Biological Laboratory                                 ═╣
+# ╠═                          Comparative Genomics and Data Science Core                        ═╣
+# ╠══════════════════════════════════════════════════════════════════════════════════════════════╣
+# ╠═ Description:                                                                               ═╣
+# ╠═     Takes in the Seurat Object generated from FindNeighborsClustersMarkers.R. Runs UMAP    ═╣
+# ╠═     and TSNE, makes/saves Preliminary Plots, and creates a Loupe File for interaciive      ═╣
+# ╠═     exploration.                                                                           ═╣
+# ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+# ╔══════════════════╗
+# ╠═ Load Libraries ═╣
+# ╚══════════════════╝
 library(dplyr)
 library(Matrix)
 library(viridis)
@@ -32,10 +35,9 @@ library(patchwork)
 library(loupeR)
 library(presto)
 
-##################################
-# READ IN PARAMS AND DIRECTORIES #
-##################################
-
+# ╔══════════════════════╗
+# ╠═ Read in Parameters ═╣
+# ╚══════════════════════╝
 args <- commandArgs(trailingOnly = TRUE)
 
 # RDS file from QC
@@ -58,15 +60,14 @@ params.ProjectName <- args[5]
 # Make Loupe File T/F
 params.MakeLoupe <- args[6]
 
-
-################
-# Read in .rds # 
-################
+# ╔════════════════════╗
+# ╠═ Load Seurat .rds ═╣
+# ╚════════════════════╝
 MergedSO <- readRDS(params.SeuratObject)
 
-######################
-# Make UMAP and TSNE #
-######################
+# ╔══════════════════════╗
+# ╠═ Make UMAP and TSNE ═╣
+# ╚══════════════════════╝
 MergedSO <- RunUMAP(MergedSO, dims = 1:params.pcMax, reduction = "pca", reduction.name = "umap.unintegrated")
 if(params.IntegrationMethod != "NULL" ){
     MergedSO <- RunUMAP(MergedSO, dims = 1:params.pcMax, reduction = paste0("integrated.",params.IntegrationMethod), reduction.name = paste0("umap.",params.IntegrationMethod))
@@ -84,9 +85,9 @@ AAAAAA
 BBCCDD
 "
 
-##########################
-# Plot Unintegrated UMAP #
-##########################
+# ╔══════════════════════════╗
+# ╠═ Plot Unintegrated UMAP ═╣
+# ╚══════════════════════════╝
 p1 <- DimPlot(object = MergedSO, reduction = 'umap.unintegrated', pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = "orig.ident", shuffle = T)
 p2 <- FeaturePlot(MergedSO, reduction = "umap.unintegrated", pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "nFeature_RNA", order = T) + scale_color_viridis(limits =c(min(MergedSO$nFeature_RNA),max(MergedSO$nFeature_RNA)), direction = -1)
 p3 <- FeaturePlot(MergedSO, reduction = "umap.unintegrated", pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "nCount_RNA", order = T) + scale_color_viridis(limits =c(min(MergedSO$nCount_RNA),max(MergedSO$nCount_RNA)), direction = -1)
@@ -99,10 +100,9 @@ for (i in params.Resolutions){
 }
 dev.off()
 
-
-##########################
-# Plot Unintegrated TSNE #
-##########################
+# ╔══════════════════════════╗
+# ╠═ Plot Unintegrated TSNE ═╣
+# ╚══════════════════════════╝
 p1 <- DimPlot(object = MergedSO, reduction = 'tsne.unintegrated', pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = "orig.ident", shuffle = T)
 p2 <- FeaturePlot(MergedSO, reduction = "tsne.unintegrated", pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "nFeature_RNA", order = T) + scale_color_viridis(limits =c(min(MergedSO$nFeature_RNA),max(MergedSO$nFeature_RNA)), direction = -1)
 p3 <- FeaturePlot(MergedSO, reduction = "tsne.unintegrated", pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "nCount_RNA", order = T) + scale_color_viridis(limits =c(min(MergedSO$nCount_RNA),max(MergedSO$nCount_RNA)), direction = -1)
@@ -115,9 +115,9 @@ for (i in params.Resolutions){
 }
 dev.off()
 
-########################
-# Plot Integrated UMAP # (if true)
-########################
+# ╔═════════════════════════════════╗
+# ╠═ Plot Integrated UMAP (if run) ═╣
+# ╚═════════════════════════════════╝
 pdf(paste0(params.ProjectName,params.IntegrationMethod,"IntegratedUMAP.pdf"),width = 20, height = 15)
 if (params.IntegrationMethod != "NULL"){
     p1 <- DimPlot(object = MergedSO, reduction = paste0("umap.",params.IntegrationMethod), pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = "orig.ident", shuffle = T)
@@ -136,9 +136,9 @@ if(params.IntegrationMethod == "NULL"){
     file.remove(paste0(params.ProjectName,params.IntegrationMethod,"IntegratedUMAP.pdf"))
 }
 
-########################
-# Plot Integrated TSNE # (if true)
-########################
+# ╔═════════════════════════════════╗
+# ╠═ Plot Integrated TSNE (if run) ═╣
+# ╚═════════════════════════════════╝
 pdf(paste0(params.ProjectName,params.IntegrationMethod,"IntegratedTSNE.pdf"),width = 20, height = 15)
 if (params.IntegrationMethod != "NULL"){
     p1 <- DimPlot(object = MergedSO, reduction = paste0("tsne.",params.IntegrationMethod), pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = "orig.ident", shuffle = T)
@@ -157,10 +157,9 @@ if(params.IntegrationMethod == "NULL"){
     file.remove(paste0(params.ProjectName,params.IntegrationMethod,"IntegratedTSNE.pdf"))
 }
 
-
-###################
-# Make Loupe File #
-###################
+# ╔═══════════════════╗
+# ╠═ Make Loupe File ═╣
+# ╚═══════════════════╝
 if(params.MakeLoupe == "TRUE"){
     create_loupe(count_mat = MergedSO@assays$RNA$counts,
                  clusters = select_clusters(MergedSO),
@@ -169,15 +168,14 @@ if(params.MakeLoupe == "TRUE"){
     )
 }
 
-######################
-# Save Seuart Object #
-######################
+# ╔══════════════════════╗
+# ╠═ Save Seurat Object ═╣
+# ╚══════════════════════╝
 SaveSeuratRds(MergedSO, file = paste0(params.ProjectName, "_Final.rds"))
 
+# ╔═════════════════╗
+# ╠═ Save Log File ═╣
+# ╚═════════════════╝
 sink(paste0(params.ProjectName,"validation.log"))
-
 MergedSO
-
 sink()
-
-

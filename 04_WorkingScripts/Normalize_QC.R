@@ -1,14 +1,21 @@
 #!/usr/local/bin/Rscript
 
-
-# title: "SeuratV5_Normalize_QC.Rmd"
-# author: "Ryan Seaman"
-# date: "02/06/2024"
-
-##################
-# LOAD LIBRARIES #
-##################
-
+# ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
+# ╠═                                    Title: Normalize_QC.R                                   ═╣
+# ╠═                                     Updated: May 31 2024                                   ═╣
+# ╠══════════════════════════════════════════════════════════════════════════════════════════════╣
+# ╠═                                       nf-core/scscape                                      ═╣
+# ╠═                                  MDI Biological Laboratory                                 ═╣
+# ╠═                          Comparative Genomics and Data Science Core                        ═╣
+# ╠══════════════════════════════════════════════════════════════════════════════════════════════╣
+# ╠═ Description:                                                                               ═╣
+# ╠═     Takes in the Seurat Object generated from MakeSeurat.R. Calculates Cell Cycle Scores,  ═╣
+# ╠═     Mitochondrial Percentages to educate a first round Quality Control. Normalization is   ═╣
+# ╠═     also run at this stage.                                                                ═╣
+# ╚══════════════════════════════════════════════════════════════════════════════════════════════╝
+# ╔══════════════════╗
+# ╠═ Load Libraries ═╣
+# ╚══════════════════╝
 library(dplyr)
 library(Matrix)
 library(viridis)
@@ -28,10 +35,9 @@ library(patchwork)
 library(loupeR)
 library(presto)
 
-##################################
-# READ IN PARAMS AND DIRECTORIES #
-##################################
-
+# ╔═════════════════════╗
+# ╠═ Read in Parameter ═╣
+# ╚═════════════════════╝
 args <- commandArgs(trailingOnly = TRUE)
 
 # Mitochondrial Genes
@@ -44,8 +50,6 @@ if (toupper(args[1]) == "NULL"){
 # nFeature subset quantiles
 params.nfeature_lower <- args[2]
 params.nfeature_upper <- 100 - as.integer(args[3])
-
-
 
 # nCount subset quantiles
 params.ncount_lower <- args[4]
@@ -60,17 +64,15 @@ params.RDS <- args[7]
 # Sample Name
 params.sample_name <- args[8]
 
-#############
-# LOAD .RDS #
-#############
-
+# ╔════════════════════╗
+# ╠═ Load Seurat .rds ═╣
+# ╚════════════════════╝
 NameSO <- params.sample_name
 assign(NameSO, LoadSeuratRds(params.RDS))
 
-####################
-# CALCULATE MT PCT #
-####################
-
+# ╔════════════════════╗
+# ╠═ Calculate Mito % ═╣
+# ╚════════════════════╝
 if (length(params.mito_genes[,1]) == 1 && params.mito_genes != 'AUTO'){
   params.regexs <- c(params.mito_genes[1])
 }else if ("AUTO" %in% params.mito_genes){
@@ -98,7 +100,6 @@ calcMT <- function(SO, regex) {
   return(SO)
 }
 
-
 assign(NameSO, calcMT(get(NameSO), params.regexs))
 
 if (sum(get(NameSO)@meta.data$percent.mt) == 0){
@@ -106,17 +107,15 @@ if (sum(get(NameSO)@meta.data$percent.mt) == 0){
   quit(status = 1)
 }
 
-############################################
-# NORMALIZE DATA  & FIND VARIABLE FEATURES #
-############################################
-
+# ╔═══════════════════════════════════════════╗
+# ╠═ Normalize Data & Find Variable Features ═╣
+# ╚═══════════════════════════════════════════╝
 assign(NameSO, NormalizeData(get(NameSO)))
 assign(NameSO, FindVariableFeatures(get(NameSO)))
 
-####################
-# PRE-FILTER PLOTS #
-####################
-
+# ╔═════════════════════════════╗
+# ╠═ Generate Pre-Filter Plots ═╣
+# ╚═════════════════════════════╝
 plot1 <- FeatureScatter(get(NameSO), feature1 = "nCount_RNA", feature2 = "percent.mt", shuffle = T)
 plot2 <- FeatureScatter(get(NameSO), feature1 = "nCount_RNA", feature2 = "nFeature_RNA", shuffle = T)
 vplot1 <- VlnPlot(get(NameSO), features = c("nCount_RNA","nFeature_RNA","percent.mt"),pt.size = -1)
@@ -126,10 +125,9 @@ print(plot1 + plot2)
 print(vplot1)
 dev.off()
 
-############################
-# SUBSETTING VIA META DATA #
-############################
-
+# ╔═══════════════════════╗
+# ╠═ Subset via Metadata ═╣
+# ╚═══════════════════════╝
 minNCount         <- quantile(get(NameSO)$nCount_RNA, probs = seq(0,1,0.05))[[paste0(params.ncount_lower, "%")]]
 minNFeature       <- quantile(get(NameSO)$nFeature_RNA, probs = seq(0,1,0.05))[[paste0(params.nfeature_lower, "%")]]
 maxNCount         <- quantile(get(NameSO)$nCount_RNA, probs = seq(0,1,0.05))[[paste0(params.ncount_upper, "%")]]
@@ -142,10 +140,9 @@ print((get(NameSO)@meta.data$nCount)[(get(NameSO)@meta.data$nCount) < 3875])
 print(maxMitoPct)
 assign(NameSO,subset(get(NameSO), subset = nFeature_RNA > minNFeature & nCount_RNA > minNCount & percent.mt < maxMitoPct & nFeature_RNA < maxNFeature & nCount_RNA < maxNCount))
 
-####################
-# POST-FILTER PLOTS #
-####################
-
+# ╔══════════════════════════════╗
+# ╠═ Generate Post-Filter Plots ═╣
+# ╚══════════════════════════════╝
 plot1 <- FeatureScatter(get(NameSO), feature1 = "nCount_RNA", feature2 = "percent.mt", shuffle = T)
 plot2 <- FeatureScatter(get(NameSO), feature1 = "nCount_RNA", feature2 = "nFeature_RNA", shuffle = T)
 vplot1 <- VlnPlot(get(NameSO), features = c("nCount_RNA","nFeature_RNA","percent.mt"),pt.size = -1)
@@ -155,10 +152,9 @@ print(plot1 + plot2)
 print(vplot1)
 dev.off()
 
-#########################################
-# CELL CYCLE SCORING & FEATURE RENAMING #
-#########################################
-
+# ╔════════════════════════════════════════╗
+# ╠═ Cell Cycle Scoring & Rename Features ═╣
+# ╚════════════════════════════════════════╝
 new_features <- rownames(get(NameSO))
 
 for (i in 1:length(new_features)) {
@@ -183,16 +179,15 @@ g2m_inSO <- new_features[upper_gns %in% g2m]
 s_inSO <- new_features[upper_gns %in% s]
 assign(NameSO, CellCycleScoring(get(NameSO), s.features = s_inSO, g2m.features = g2m_inSO, set.ident = TRUE))
 
-
-
-###############
-# SAVE OUTPUT #
-###############
-
+# ╔══════════════════════╗
+# ╠═ Save Seurat Object ═╣
+# ╚══════════════════════╝
 SaveSeuratRds(get(NameSO), file = paste0(params.sample_name, "_QC.rds"))
 
+# ╔═════════════════╗
+# ╠═ Save Log File ═╣
+# ╚═════════════════╝
 sink(paste0(params.sample_name,".validation.log"))
-
 print(get(NameSO))
 cat("\n")
 cat(paste0("\nMin nCount: ", minNCount))
@@ -203,6 +198,4 @@ cat("\n")
 cat(paste0("\nPct G2M: " ,(length(which(get(NameSO)@meta.data$Phase == "G2M"))/length(colnames(get(NameSO))))))
 cat(paste0("\nPct S: " ,(length(which(get(NameSO)@meta.data$Phase == "S"))/length(colnames(get(NameSO))))))
 cat(paste0("\nPct G1: " ,(length(which(get(NameSO)@meta.data$Phase == "G1"))/length(colnames(get(NameSO))))))
-
 sink()
-

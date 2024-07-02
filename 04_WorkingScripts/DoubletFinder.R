@@ -185,7 +185,7 @@ SaveSeuratRds(samp, file = paste0(params.sampleName, "_DoubletsRemoved.rds"))
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣
 # ╚═════════════════╝
-sink(paste0(params.sampleName,"validation.log"))
+sink(paste0(params.sampleName,".validation.log"))
 print(DoubletCount)
 samp
 sink()

@@ -101,6 +101,6 @@ saveRDS(MergedSO, paste0(params.ProjectName,"Merged_SO.rds"))
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣
 # ╚═════════════════╝
-sink("Mergedvalidation.log")
+sink(paste0(params.ProjectName,"_Mergedvalidation.log"))
 print(MergedSO)
 sink()

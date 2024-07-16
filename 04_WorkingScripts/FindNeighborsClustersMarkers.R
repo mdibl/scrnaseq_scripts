@@ -210,10 +210,10 @@ if (params.IntegrationMethod != "NULL"){
     
     ### Save Sankey Plot
     pdf(paste0(params.ProjectName,params.IntegrationMethod ,"SankeyPlot.pdf"), width = 20, height = 15)
-    pl
+    print(pl)
+    dev.off()
     
 }
-dev.off()
 ###############
 # Join Layers #
 ###############

@@ -63,15 +63,14 @@ if(params.IntegrationMethod == "FastMNN"){
     MergedSO <- IntegrateLayers(object = MergedSO, method = paste0(params.IntegrationMethod,"Integration"), orig.reduction = "pca", new.reduction = paste0("integrated.",params.IntegrationMethod))
 }
 
-######################
-# Save Seuart Object #
-######################
+# ╔══════════════════════╗
+# ╠═ Save Seurat Object ═╣
+# ╚══════════════════════╝
 SaveSeuratRds(MergedSO, file = paste0(params.ProjectName, "_Integrated.rds"))
 
+# ╔═════════════════╗
+# ╠═ Save Log File ═╣
+# ╚═════════════════╝
 sink(paste0(params.ProjectName,"validation.log"))
-
 MergedSO
-
 sink()
-
-

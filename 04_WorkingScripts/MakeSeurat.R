@@ -49,7 +49,7 @@ params.genes_2_rm <- args[3]
 params.sample_name <- args[4]
 
 # Project Name (analysis group)
-params.project_name <- args[5]
+params.project_name <- gsub("]", "", gsub("[", "", gsub(", ", "-", args[5])))
 
 # Min Cells
 params.min_cells <- args[6]
@@ -113,6 +113,7 @@ SaveSeuratRds(get(NameSO), file = paste0(params.sample_name, "_SO.rds"))
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣
 # ╚═════════════════╝
-sink(paste0(params.sample_name,".validation.log"))
+sink(paste0(params.sample_name,"_MakeSeurat_Validation.log"))
+print()
 print(get(NameSO))
 sink()

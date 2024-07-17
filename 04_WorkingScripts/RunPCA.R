@@ -105,6 +105,7 @@ if (length(rm_ind) > 0){
 if (toupper(params.pcMax) == "NULL"){
   pc_tbl <- findPC(sdev = ElbowPoints[[ident]], number = 100, method = "all", figure = T)
   params.pcMax <- mean(x = c(pc_tbl[1,2], pc_tbl[1,3], pc_tbl[1,4]))
+  params.pcMax <- ceiling(params.pcMax)
 }else{
   params.pcMax
 }

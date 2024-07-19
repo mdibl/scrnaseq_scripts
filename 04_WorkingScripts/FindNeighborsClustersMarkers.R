@@ -16,22 +16,13 @@
 # ╠═ Load Libraries ═╣
 # ╚══════════════════╝
 library(dplyr)
+library(stringr)
 library(Matrix)
-library(viridis)
-library(tidyverse)
 library(Seurat)
-library(SeuratData)
 library(SeuratObject)
-library(SeuratWrappers)
-library(Seurat.utils)
-library(SingleCellExperiment)
-library(gprofiler2)
 library(ggplot2)
 library(ggsankey)
-library(DoubletFinder)
-library(stringr)
 library(patchwork)
-library(loupeR)
 library(presto)
 
 # ╔══════════════════════╗
@@ -224,6 +215,8 @@ MergedSO[["RNA"]] <- JoinLayers(MergedSO[["RNA"]])
 # ╔════════════════════════════════════╗
 # ╠═ Find Markers and Save TSV output ═╣
 # ╚════════════════════════════════════╝
+MergedSO <- PrepSCTFindMarkers(MergedSO, assay = "SCT", verbose = TRUE)
+
 for(i in 1:length(params.Resolutions)){
     print(paste0("Finding Unintegrated Markers at ",params.Resolutions[i]," resolution..."))
     Idents(MergedSO) <- paste0("unintegratedRes.",params.Resolutions[i])
@@ -267,11 +260,24 @@ if (params.IntegrationMethod != "NULL") {
 # ╔══════════════════════╗
 # ╠═ Save Seurat Object ═╣
 # ╚══════════════════════╝
-SaveSeuratRds(MergedSO, file = paste0(params.ProjectName, "_Clustered.rds"))
+SaveSeuratRds(MergedSO, file = paste0("06_",params.ProjectName, "_ClusterSO.rds"))
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣
 # ╚═════════════════╝
-sink(paste0(params.ProjectName,"validation.log"))
-MergedSO
+sink(paste0("06_",params.ProjectName,"_ClusterValidation.log"))
+print("╔══════════════════════════════════════════════════════════════════════════════════════════════╗")
+print("╠  FindNeighborsClustersMarkers.R log")
+print(paste0("╠  Analysis Group: ", params.ProjectName))
+print("╚══════════════════════════════════════════════════════════════════════════════════════════════╝")
+print("Seurat Object Status:")
+print(MergedSO)
+sink()
+
+sink(paste0("06_",params.ProjectName,"_ClusterVersions.log"))
+print("╔══════════════════════════════════════════════════════════════════════════════════════════════╗")
+print("╠  FindNeighborsClustersMarkers.R Versions")
+print(paste0("╠  Analysis Group: ", params.ProjectName))
+print("╚══════════════════════════════════════════════════════════════════════════════════════════════╝")
+sessionInfo()
 sink()

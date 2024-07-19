@@ -17,23 +17,14 @@
 # ╠═ Load Libraries ═╣
 # ╚══════════════════╝
 library(dplyr)
+library(stringr)
 library(Matrix)
 library(viridis)
-library(tidyverse)
 library(Seurat)
-library(SeuratData)
 library(SeuratObject)
-library(SeuratWrappers)
-library(Seurat.utils)
-library(SingleCellExperiment)
-library(gprofiler2)
 library(ggplot2)
-library(ggsankey)
-library(DoubletFinder)
-library(stringr)
 library(patchwork)
 library(loupeR)
-library(presto)
 
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
@@ -160,7 +151,8 @@ if(params.IntegrationMethod == "NULL"){
 # ╔═══════════════════╗
 # ╠═ Make Loupe File ═╣
 # ╚═══════════════════╝
-if(params.MakeLoupe == "TRUE"){
+if(toupper(params.MakeLoupe) == "TRUE"){
+    #loupeR::setup()
     create_loupe(count_mat = MergedSO@assays$RNA$counts,
                  clusters = select_clusters(MergedSO),
                  projections = select_projections(MergedSO),
@@ -171,11 +163,24 @@ if(params.MakeLoupe == "TRUE"){
 # ╔══════════════════════╗
 # ╠═ Save Seurat Object ═╣
 # ╚══════════════════════╝
-SaveSeuratRds(MergedSO, file = paste0(params.ProjectName, "_Final.rds"))
+SaveSeuratRds(MergedSO, file = paste0("07",params.ProjectName, "_FinalSO.rds"))
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣
 # ╚═════════════════╝
-sink(paste0(params.ProjectName,"validation.log"))
-MergedSO
+sink(paste0("07_",params.ProjectName,"_PlotValidation.log"))
+print("╔══════════════════════════════════════════════════════════════════════════════════════════════╗")
+print("╠  Plotting.R log")
+print(paste0("╠  Analysis Group: ", params.ProjectName))
+print("╚══════════════════════════════════════════════════════════════════════════════════════════════╝")
+print("Seurat Object Status:")
+print(MergedSO)
+sink()
+
+sink(paste0("07_",params.ProjectName,"_PlotVersions.log"))
+print("╔══════════════════════════════════════════════════════════════════════════════════════════════╗")
+print("╠  Plotting.R Versions")
+print(paste0("╠  Analysis Group: ", params.ProjectName))
+print("╚══════════════════════════════════════════════════════════════════════════════════════════════╝")
+sessionInfo()
 sink()

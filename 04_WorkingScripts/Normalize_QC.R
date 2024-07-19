@@ -73,10 +73,10 @@ assign(NameSO, LoadSeuratRds(params.RDS))
 # ╔════════════════════╗
 # ╠═ Calculate Mito % ═╣
 # ╚════════════════════╝
-if (length(params.mito_genes[,1]) == 1 && params.mito_genes != 'AUTO'){
-  params.regexs <- c(params.mito_genes[1])
-}else if ("AUTO" %in% params.mito_genes){
+if ("AUTO" %in% params.mito_genes){
   params.regexs <- c('MT-', 'mt-', 'Mt-')
+}else if (length(params.mito_genes[,1]) == 1 && params.mito_genes != 'AUTO'){
+  params.regexs <- c(params.mito_genes[1])
 } else {
   params.regexs <- c(0)
 }

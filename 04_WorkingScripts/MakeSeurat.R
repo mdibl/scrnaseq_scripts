@@ -15,20 +15,10 @@
 # ╔══════════════════╗
 # ╠═ Load Libraries ═╣
 # ╚══════════════════╝
-library(dplyr)
-library(Matrix)
-library(viridis)
-library(tidyverse)
-library(Seurat)
-library(SeuratData)
-library(SeuratObject)
-library(SeuratWrappers)
-library(Seurat.utils)
-library(SingleCellExperiment)
-library(gprofiler2)
 library(stringr)
-library(patchwork)
-library(presto)
+library(Matrix)
+library(Seurat)
+library(SeuratObject)
 
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
@@ -103,17 +93,34 @@ assign(Name10XAnnotated, get(params.sample_name)[which(rownames(get(params.sampl
 # ╠═ Create Seurat Object ═╣
 # ╚════════════════════════╝
 NameSO <- paste0("SO_",params.sample_name)
-assign(NameSO, CreateSeuratObject(counts = get(Name10XAnnotated), project = params.project_name, min.cells = params.min_cells, min.features = params.min_features, ))
+assign(NameSO, CreateSeuratObject(counts = get(Name10XAnnotated), project = params.sample_name, min.cells = params.min_cells, min.features = params.min_features, ))
 
 # ╔══════════════════════╗
 # ╠═ Save Seurat Object ═╣
 # ╚══════════════════════╝
-SaveSeuratRds(get(NameSO), file = paste0(params.sample_name, "_SO.rds"))
+SaveSeuratRds(get(NameSO), file = paste0("00_",params.sample_name, "_InitalSO.rds"))
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣
 # ╚═════════════════╝
-sink(paste0(params.sample_name,"_MakeSeurat_Validation.log"))
-print()
+sink(paste0("00_",params.sample_name,"_InitialValidation.log"))
+print("╔══════════════════════════════════════════════════════════════════════════════════════════════╗")
+print("╠  MakeSeurat.R log")
+print(paste0("╠  Sample: ", params.sample_name))
+print("╚══════════════════════════════════════════════════════════════════════════════════════════════╝")
+print(paste0("Gene Identifier: ", params.gene_identifier))
+print(paste0("ProjectName: ", params.project_name))
+print(paste0("Minimum Cells: ", params.min_cells))
+print(paste0("Min Features: ", params.min_features))
+print("")
+print("Seurat Object Status:")
 print(get(NameSO))
+sink()
+
+sink(paste0("00_",params.sample_name,"_InitialVersions.log"))
+print("╔══════════════════════════════════════════════════════════════════════════════════════════════╗")
+print("╠  MakeSeurat.R Versions")
+print(paste0("╠  Sample: ", params.sample_name))
+print("╚══════════════════════════════════════════════════════════════════════════════════════════════╝")
+sessionInfo()
 sink()

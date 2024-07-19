@@ -17,23 +17,10 @@
 # ╠═ Load Libraries ═╣
 # ╚══════════════════╝
 library(dplyr)
-library(Matrix)
-library(viridis)
-library(tidyverse)
-library(Seurat)
-library(SeuratData)
-library(SeuratObject)
-library(SeuratWrappers)
-library(Seurat.utils)
-library(SingleCellExperiment)
-library(gprofiler2)
-library(ggplot2)
-library(ggsankey)
-library(DoubletFinder)
 library(stringr)
-library(patchwork)
-library(loupeR)
-library(presto)
+library(Matrix)
+library(Seurat)
+library(SeuratObject)
 
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
@@ -49,6 +36,9 @@ params.IntegrationMethod <- args[2]
 # Project Name
 params.ProjectName <- args[3]
 
+# Scale Options ( SD or default SCT)
+params.scaleMethod <- args[4]
+
 # ╔════════════════════╗
 # ╠═ Load Seurat .rds ═╣
 # ╚════════════════════╝
@@ -58,19 +48,40 @@ MergedSO <- readRDS(params.SeuratObject)
 # ╠═ Run Integration ═╣
 # ╚═══════════════════╝
 if(params.IntegrationMethod == "FastMNN"){
-    MergedSO <- IntegrateLayers(object = MergedSO, method = paste0(params.IntegrationMethod,"Integration"), new.reduction = paste0("integrated.",params.IntegrationMethod))
+    if(params.scaleMethod == "SD"){
+        MergedSO <- IntegrateLayers(object = MergedSO, method = paste0(params.IntegrationMethod,"Integration"), new.reduction = paste0("integrated.",params.IntegrationMethod))
+    }else{
+        MergedSO <- IntegrateLayers(object = MergedSO, method = paste0(params.IntegrationMethod,"Integration"), new.reduction = paste0("integrated.",params.IntegrationMethod), normalization.method = "SCT")
+    }
 }else{
-    MergedSO <- IntegrateLayers(object = MergedSO, method = paste0(params.IntegrationMethod,"Integration"), orig.reduction = "pca", new.reduction = paste0("integrated.",params.IntegrationMethod))
+    if(params.scaleMethod == "SD"){
+        MergedSO <- IntegrateLayers(object = MergedSO, method = paste0(params.IntegrationMethod,"Integration"), orig.reduction = "pca", new.reduction = paste0("integrated.",params.IntegrationMethod))
+    }else{
+        MergedSO <- IntegrateLayers(object = MergedSO, method = paste0(params.IntegrationMethod,"Integration"), orig.reduction = "pca", new.reduction = paste0("integrated.",params.IntegrationMethod), normalization.method = "SCT")
+    }
 }
 
 # ╔══════════════════════╗
 # ╠═ Save Seurat Object ═╣
 # ╚══════════════════════╝
-SaveSeuratRds(MergedSO, file = paste0(params.ProjectName, "_Integrated.rds"))
+SaveSeuratRds(MergedSO, file = paste0("05_",params.ProjectName, "_IntegrateSO.rds"))
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣
 # ╚═════════════════╝
-sink(paste0(params.ProjectName,"validation.log"))
-MergedSO
+sink(paste0("05_",params.ProjectName,"_IntegrateValidation.log"))
+print("╔══════════════════════════════════════════════════════════════════════════════════════════════╗")
+print("╠  Integration.R log")
+print(paste0("╠  Analysis Group: ", params.ProjectName))
+print("╚══════════════════════════════════════════════════════════════════════════════════════════════╝")
+print("Seurat Object Status:")
+print(MergedSO)
+sink()
+
+sink(paste0("05_",params.ProjectName,"_IntegrateVersions.log"))
+print("╔══════════════════════════════════════════════════════════════════════════════════════════════╗")
+print("╠  Integration.R Versions")
+print(paste0("╠  Analysis Group: ", params.ProjectName))
+print("╚══════════════════════════════════════════════════════════════════════════════════════════════╝")
+sessionInfo()
 sink()

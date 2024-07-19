@@ -17,23 +17,13 @@
 # ╠═ Load Libraries ═╣
 # ╚══════════════════╝
 library(dplyr)
-library(Matrix)
-library(viridis)
-library(tidyverse)
-library(Seurat)
-library(SeuratData)
-library(SeuratObject)
-library(SeuratWrappers)
-library(Seurat.utils)
-library(SingleCellExperiment)
-library(gprofiler2)
-library(ggplot2)
-library(ggsankey)
-library(DoubletFinder)
 library(stringr)
+library(Matrix)
+library(Seurat)
+library(SeuratObject)
+library(Seurat.utils)
+library(ggplot2)
 library(patchwork)
-library(loupeR)
-library(presto)
 
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
@@ -44,7 +34,7 @@ args <- commandArgs(trailingOnly = TRUE)
 if (toupper(args[1]) == "NULL"){
   params.mito_genes <- "AUTO"
 } else {
-  params.mito_genes <- as.data.frame(read.csv(args[1], sep = "\t", header = F))
+  params.mito_genes <- as.data.frame(read.table(args[1], header = F))
 }
 
 # nFeature subset quantiles
@@ -59,7 +49,7 @@ params.ncount_upper <- 100 - as.integer(args[5])
 params.mito_pct <- args[6]
 
 # Seurat rds file
-params.RDS <- args[7]
+params.SeuratObject <- args[7]
 
 # Sample Name
 params.sample_name <- args[8]
@@ -68,7 +58,7 @@ params.sample_name <- args[8]
 # ╠═ Load Seurat .rds ═╣
 # ╚════════════════════╝
 NameSO <- params.sample_name
-assign(NameSO, LoadSeuratRds(params.RDS))
+assign(NameSO, readRDS(params.SeuratObject))
 
 # ╔════════════════════╗
 # ╠═ Calculate Mito % ═╣
@@ -182,14 +172,16 @@ assign(NameSO, CellCycleScoring(get(NameSO), s.features = s_inSO, g2m.features =
 # ╔══════════════════════╗
 # ╠═ Save Seurat Object ═╣
 # ╚══════════════════════╝
-SaveSeuratRds(get(NameSO), file = paste0(params.sample_name, "_QC.rds"))
+SaveSeuratRds(get(NameSO), file = paste0("01_",params.sample_name, "_NormQCSO.rds"))
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣
 # ╚═════════════════╝
-sink(paste0(params.sample_name,".validation.log"))
-print(get(NameSO))
-cat("\n")
+sink(paste0("01_",params.sample_name,"_NormQCValidation.log"))
+print("╔══════════════════════════════════════════════════════════════════════════════════════════════╗")
+print("╠  Normalize_QC.R log")
+print(paste0("╠  Sample: ", params.sample_name))
+print("╚══════════════════════════════════════════════════════════════════════════════════════════════╝")
 cat(paste0("\nMin nCount: ", minNCount))
 cat(paste0("\nMin nFeature: ", minNFeature))
 cat(paste0("\nMax nCount: ", maxNCount))
@@ -198,4 +190,16 @@ cat("\n")
 cat(paste0("\nPct G2M: " ,(length(which(get(NameSO)@meta.data$Phase == "G2M"))/length(colnames(get(NameSO))))))
 cat(paste0("\nPct S: " ,(length(which(get(NameSO)@meta.data$Phase == "S"))/length(colnames(get(NameSO))))))
 cat(paste0("\nPct G1: " ,(length(which(get(NameSO)@meta.data$Phase == "G1"))/length(colnames(get(NameSO))))))
+cat("\n")
+print("Seurat Object Status:")
+print(get(NameSO))
+sink()
+
+
+sink(paste0("01_",params.sample_name,"_NormQCVersions.log"))
+print("╔══════════════════════════════════════════════════════════════════════════════════════════════╗")
+print("╠  Normalize_QC.R Versions")
+print(paste0("╠  Sample: ", params.sample_name))
+print("╚══════════════════════════════════════════════════════════════════════════════════════════════╝")
+sessionInfo()
 sink()

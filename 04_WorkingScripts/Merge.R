@@ -17,19 +17,11 @@
 # ╠═ Load Libraries ═╣
 # ╚══════════════════╝
 library(dplyr)
-library(Matrix)
-library(viridis)
-library(tidyverse)
-library(Seurat)
-library(SeuratData)
-library(SeuratObject)
-library(SeuratWrappers)
-library(Seurat.utils)
-library(SingleCellExperiment)
-library(gprofiler2)
 library(stringr)
+library(Matrix)
+library(Seurat)
+library(SeuratObject)
 library(patchwork)
-library(presto)
 
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
@@ -44,16 +36,22 @@ params.VarsToRegress <- args[2]
 params.VarsToRegress <- unlist(strsplit(params.VarsToRegress, ","))
 print(params.VarsToRegress)
 
+# Variable Features (VF) or ALL (default VF)
+params.scaleFeatures <- args[3]
+
+# Scale Options ( SD or default SCT)
+params.scaleMethod <- args[4]
+
+
 # ╔════════════════════╗
 # ╠═ Load Seurat .rds ═╣
 # ╚════════════════════╝
 SeuratRDSfiles <- list.files(pattern = "\\.rds$", ignore.case = T)
-
 SampleNames <- c()
 
 counter <- 1 
 for( file in SeuratRDSfiles){
-    ObjName <- gsub("_.*","", file)
+    ObjName <- gsub("^02_","",gsub("_Doublets.*","", file))
     SampleNames <- append(SampleNames,ObjName)
     assign(ObjName, readRDS(file))
 }
@@ -67,13 +65,15 @@ while (count <= countMax){
 }
 
 MergedSO <- merge(get(SampleNames[1]), y= SOlist2up, add.cell.ids = SampleNames, project = params.ProjectName)
-MergedSO
+MergedSO@assays$SCT <- NULL
+DefaultAssay(object = MergedSO) <- "RNA"
 
+
+### ADDED NOT WORKING ATM
 # ╔═══════════════════════════════════════════╗
 # ╠═ Normalize Data & Find Variable Features ═╣
 # ╚═══════════════════════════════════════════╝
 MergedSO <- NormalizeData(MergedSO)
-MergedSO <- FindVariableFeatures(MergedSO)
 
 # ╔═════════════════════════════════════╗
 # ╠═ Generate Merged Post-Filter Plots ═╣
@@ -90,17 +90,50 @@ dev.off()
 # ╔══════════════════════════════╗
 # ╠═ Scale Merged Seurat Object ═╣
 # ╚══════════════════════════════╝
+# create a list of all genes
 all.genes <- rownames(MergedSO)
-MergedSO = ScaleData(MergedSO, features = all.genes ,vars.to.regress = params.VarsToRegress)
+
+# Scale Data and PCA
+if (params.scaleMethod == "SD"){
+    if (params.scaleFeatures == "ALL"){
+        MergedSO <- FindVariableFeatures(MergedSO)
+        MergedSO <- ScaleData(MergedSO, features = all.genes ,vars.to.regress = params.VarsToRegress)
+    }else{
+        MergedSO <- FindVariableFeatures(MergedSO)
+        MergedSO <- ScaleData(MergedSO, vars.to.regress = params.VarsToRegress)
+    }
+}else{
+    if (params.scaleFeatures == "ALL"){
+        MergedSO <- SCTransform(MergedSO, vars.to.regress = params.VarsToRegress, return.only.var.genes = F )
+    }else{
+        MergedSO <- SCTransform(MergedSO, vars.to.regress = params.VarsToRegress)
+    }
+}
 
 # ╔══════════════════════╗
 # ╠═ Save Seurat Object ═╣
 # ╚══════════════════════╝
-saveRDS(MergedSO, paste0(params.ProjectName,"Merged_SO.rds"))
+saveRDS(MergedSO, paste0("03_", params.ProjectName,"_MergedSO.rds"))
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣
 # ╚═════════════════╝
-sink(paste0(params.ProjectName,"_Mergedvalidation.log"))
+sink(paste0("03_",params.ProjectName,"_MergeValidation.log"))
+print("╔══════════════════════════════════════════════════════════════════════════════════════════════╗")
+print("╠  Merge.R log")
+print(paste0("╠  Analysis Group: ", params.ProjectName))
+print("╚══════════════════════════════════════════════════════════════════════════════════════════════╝")
+print("Seurat Object Status:")
 print(MergedSO)
 sink()
+
+sink(paste0("03_",params.ProjectName,"_MergeVersions.log"))
+print("╔══════════════════════════════════════════════════════════════════════════════════════════════╗")
+print("╠  Merge.R Versions")
+print(paste0("╠  Analysis Group: ", params.ProjectName))
+print("╚══════════════════════════════════════════════════════════════════════════════════════════════╝")
+sessionInfo()
+sink()
+
+
+

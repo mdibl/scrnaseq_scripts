@@ -17,23 +17,12 @@
 # ╠═ Load Libraries ═╣
 # ╚══════════════════╝
 library(dplyr)
-library(Matrix)
-library(viridis)
-library(tidyverse)
-library(Seurat)
-library(SeuratData)
-library(SeuratObject)
-library(SeuratWrappers)
-library(Seurat.utils)
-library(SingleCellExperiment)
-library(gprofiler2)
-library(ggplot2)
-library(ggsankey)
-library(DoubletFinder)
 library(stringr)
-library(patchwork)
-library(loupeR)
-library(presto)
+library(Matrix)
+library(Seurat)
+library(SeuratObject)
+library(ggplot2)
+library(DoubletFinder)
 library(findPC)
 
 # ╔══════════════════════╗
@@ -55,6 +44,12 @@ params.DataDir <- args[3]
 # SampleName
 params.sampleName <- args[4]
 
+# Variable Features (VF) or ALL (default VF)
+params.scaleFeatures <- args[5]
+
+# Scale Options ( SD or default SCT)
+params.scaleMethod <- args[6]
+
 # ╔═════════════════════════════════╗
 # ╠═ Preparation for Find Doublets ═╣
 # ╚═════════════════════════════════╝
@@ -64,12 +59,25 @@ samp <- readRDS(params.SeuratObject)
 # create a list of all genes
 all.genes <- rownames(samp)
 
-# Scale Data
-samp <- ScaleData(samp, features = all.genes ,vars.to.regress = params.VarsToRegress)
-
-# Run PCA on individual samples
-samp <- RunPCA(samp, features = all.genes ,npcs = 100)
-
+# Scale Data and PCA
+if (params.scaleMethod == "SD"){
+    if (params.scaleFeatures == "ALL"){
+        samp <- ScaleData(samp, features = all.genes ,vars.to.regress = params.VarsToRegress)
+        samp <- RunPCA(samp ,npcs = 100)
+    }else{
+        samp <- ScaleData(samp, vars.to.regress = params.VarsToRegress)
+        samp <- RunPCA(samp ,npcs = 100)
+    }
+}else{
+    if (params.scaleFeatures == "ALL"){
+        samp <- SCTransform(samp, vars.to.regress = params.VarsToRegress, return.only.var.genes = F )
+        samp <- RunPCA(samp ,npcs = 100)
+    }else{
+        samp <- SCTransform(samp, vars.to.regress = params.VarsToRegress)
+        samp <- RunPCA(samp,  npcs = 100)
+    }
+}
+    
 # Generate Elbow Plots and Calculate PCs to use
 Elbow <- ElbowPlot(samp,  ndims = 100, reduction = "pca")
 ElbowPoints <- Elbow$data
@@ -117,6 +125,7 @@ df <- data.frame(x,y)
 
 pc_tbl <- findPC(sdev = ElbowPoints[[ident]], number = 100, method = "all", figure = F)
 params.pcMax <- mean(x = c(pc_tbl[1,2], pc_tbl[1,3], pc_tbl[1,4]))
+params.pcMax <- ceiling(params.pcMax)
 
 pdf(paste0(params.sampleName,"_ElbowPlot.pdf"), width = 20, height = 15)
 ggplot(df, aes(x, y)) +
@@ -145,7 +154,7 @@ params.CellsRecovered <- length(readLines((paste0(params.DataDir,"/",list.files(
 # ╠═ Identify Doublets ═╣
 # ╚═════════════════════╝
 #    (Percent Doublet is calculated based on a 0.8% increase per 1000 cells recovered as per the 10X website.)
-sweep.res.list_meta <- paramSweep(samp, PCs = 1:params.pcMax, sct = F )
+sweep.res.list_meta <- paramSweep(samp, PCs = 1:params.pcMax, sct = ifelse(toupper(params.scaleMethod) == "SCT", T,F) )
 sweep.stats_meta <- summarizeSweep(sweep.res.list_meta, GT = FALSE)
 bcmvn_meta <- find.pK(sweep.stats_meta)
 pK <- bcmvn_meta %>%
@@ -162,7 +171,7 @@ samp <- doubletFinder(samp,
                       pK = pK,
                       nExp = nExp_poi.adj,
                       reuse.pANN = F,
-                      sct = F)
+                      sct = ifelse(toupper(params.scaleMethod) == "SCT", T,F))
 
 
 # Visualize and Count Doublets
@@ -180,12 +189,31 @@ samp <- subset(samp, subset = !!as.name(doubletmeta) == "Singlet"  )
 # ╔══════════════════════╗
 # ╠═ Save Seurat Object ═╣
 # ╚══════════════════════╝
-SaveSeuratRds(samp, file = paste0(params.sampleName, "_DoubletsRemoved.rds"))
+SaveSeuratRds(samp, file = paste0("02_", params.sampleName, "_DoubletsRmSO.rds"))
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣
 # ╚═════════════════╝
-sink(paste0(params.sampleName,".validation.log"))
+sink(paste0("02_", params.sampleName,"_DoubletsRmValidation.log"))
+print("╔══════════════════════════════════════════════════════════════════════════════════════════════╗")
+print("╠  DoubletFinder.R log")
+print(paste0("╠  Sample: ", params.sampleName))
+print("╚══════════════════════════════════════════════════════════════════════════════════════════════╝")
+print(paste0("PCs used: 1 - ", params.pcMax))
+print("pN (proportion of artifical doublets) set to: 0.25")
+print(paste0("pK (PC neighborhood size used to compute pANN) set to: ", pK))
+print(paste0("nExp (Expected Doublets) set to: ", nExp_poi))
+print(paste0("nExp Adjusted (Expected Doublets adjusted to proportion of homotypic doublets) set to: ", nExp_poi.adj))
+print("Singlet-Doublet Split: ")
 print(DoubletCount)
+print("Seurat Object Status:")
 samp
+sink()
+
+sink(paste0("02_",params.sampleName,"_DoubletsRmVersions.log"))
+print("╔══════════════════════════════════════════════════════════════════════════════════════════════╗")
+print("╠  DoubletFinder.R Versions")
+print(paste0("╠  Sample: ", params.sampleName))
+print("╚══════════════════════════════════════════════════════════════════════════════════════════════╝")
+sessionInfo()
 sink()

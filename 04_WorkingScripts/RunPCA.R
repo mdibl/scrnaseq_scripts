@@ -18,23 +18,11 @@
 # ╠═ Load Libraries ═╣
 # ╚══════════════════╝
 library(dplyr)
-library(Matrix)
-library(viridis)
-library(tidyverse)
-library(Seurat)
-library(SeuratData)
-library(SeuratObject)
-library(SeuratWrappers)
-library(Seurat.utils)
-library(SingleCellExperiment)
-library(gprofiler2)
-library(ggplot2)
-library(ggsankey)
-library(DoubletFinder)
 library(stringr)
-library(patchwork)
-library(loupeR)
-library(presto)
+library(Matrix)
+library(Seurat)
+library(SeuratObject)
+library(ggplot2)
 library(findPC)
 
 # ╔══════════════════════╗
@@ -43,26 +31,23 @@ library(findPC)
 args <- commandArgs(trailingOnly = TRUE)
 
 # Load RDS
-rds <- LoadSeuratRds(args[1])
+MergedSO <- LoadSeuratRds(args[1])
 
 # Maximum PC to be used in dimensional reduciton/ find neighbors
 params.pcMax <- args[2]
 
 # Sample Name
-params.project_name <- args[3]
-
-assign(params.project_name, rds)
+params.ProjectName <- args[3]
 
 # ╔═══════════╗
 # ╠═ Run PCA ═╣
 # ╚═══════════╝
-all.genes <- rownames(get(params.project_name))
-SO <- RunPCA(get(params.project_name), features = all.genes, npcs = 100)
+MergedSO <- RunPCA(MergedSO, npcs = 100)
 
 # ╔═══════════════╗
 # ╠═ Find PC Max ═╣
 # ╚═══════════════╝
-Elbow <- ElbowPlot(SO,  ndims = 100, reduction = "pca")
+Elbow <- ElbowPlot(MergedSO,  ndims = 100, reduction = "pca")
 ElbowPoints <- Elbow$data
 
 for (i in seq(0.1, 0.9, 0.1)){
@@ -114,7 +99,7 @@ x = ElbowPoints$dims
 y = ElbowPoints$stdev
 df <- data.frame(x,y)
 
-pdf(paste0(params.project_name,"_Merged_ElbowPlot.pdf"), width = 20, height = 15)
+pdf(paste0(params.ProjectName,"_Merged_ElbowPlot.pdf"), width = 20, height = 15)
 ggplot(df, aes(x, y)) +
   geom_point() +
   geom_line(aes(x = seq(1,100), y = ElbowPoints[[ident]]), color = "green") +
@@ -128,7 +113,7 @@ dev.off()
 # ╔══════════════════════╗
 # ╠═ Save Seurat Object ═╣
 # ╚══════════════════════╝
-SaveSeuratRds(SO, file = paste0(params.project_name, "_PCA.rds"))
+SaveSeuratRds(MergedSO, file = paste0("04_", params.ProjectName, "_PCASO.rds"))
 
 
 # ╔═════════════════╗
@@ -136,14 +121,27 @@ SaveSeuratRds(SO, file = paste0(params.project_name, "_PCA.rds"))
 # ╚═════════════════╝
 loess <- loess(stdev ~ dims,data=ElbowPoints, span = idents[index])
 my_summary <- summary(loess)
-sink(paste0(params.project_name,".validation.log"))
-print(get(params.project_name))
-cat("\n")
+
+sink(paste0("04_", params.ProjectName,"_PCAValidation.log"))
+print("╔══════════════════════════════════════════════════════════════════════════════════════════════╗")
+print("╠  RunPCA.R log")
+print(paste0("╠  Analysis Group: ", params.ProjectName))
+print("╚══════════════════════════════════════════════════════════════════════════════════════════════╝")
+print("Loess Summary: ")
 print(my_summary)
 cat("\n")
+print("PC cutoff calculations:")
 cat(paste0("First Derivative : ", pc_tbl[1,2], "\n"))
 cat(paste0("Second Derivative : ", pc_tbl[1,3], "\n"))
 cat(paste0("Preceding Residual : ", pc_tbl[1,4], "\n"))
 cat("\n")
-cat(paste0("PC Max Selected at: ", params.pcMax))
+cat(paste0("PCs used: 1 - ", params.pcMax))
+sink()
+
+sink(paste0("04_",params.ProjectName,"_PCAVersions.log"))
+print("╔══════════════════════════════════════════════════════════════════════════════════════════════╗")
+print("╠  RunPCA.R Versions")
+print(paste0("╠  Analysis Group: ", params.ProjectName))
+print("╚══════════════════════════════════════════════════════════════════════════════════════════════╝")
+sessionInfo()
 sink()

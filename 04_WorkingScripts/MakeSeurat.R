@@ -42,10 +42,10 @@ params.sample_name <- args[4]
 params.project_name <- gsub("\\]", "", gsub("\\[", "", gsub(", ", "-", args[5])))
 
 # Min Cells
-params.min_cells <- args[6]
+params.min_cells <- as.integer(args[6])
 
 # Min Features
-params.min_features <- args[7]
+params.min_features <- as.integer(args[7])
 
 # ╔═══════════════════╗
 # ╠═ Subset Features ═╣
@@ -93,7 +93,7 @@ assign(Name10XAnnotated, get(params.sample_name)[which(rownames(get(params.sampl
 # ╠═ Create Seurat Object ═╣
 # ╚════════════════════════╝
 NameSO <- paste0("SO_",params.sample_name)
-assign(NameSO, CreateSeuratObject(counts = get(Name10XAnnotated), project = params.sample_name, min.cells = params.min_cells, min.features = params.min_features, ))
+assign(NameSO, CreateSeuratObject(counts = get(Name10XAnnotated), project = params.sample_name, min.cells = params.min_cells, min.features = params.min_features))
 
 # ╔══════════════════════╗
 # ╠═ Save Seurat Object ═╣

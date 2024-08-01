@@ -47,6 +47,10 @@ params.IntegrationMethod <- args[4]
 # Project Name
 params.ProjectName <- args[5]
 
+# Scale Options ( SD or default SCT)
+params.scaleMethod <- args[6]
+
+
 # ╔══════════════════════╗
 # ╠═ Create Directories ═╣
 # ╚══════════════════════╝
@@ -215,7 +219,9 @@ MergedSO[["RNA"]] <- JoinLayers(MergedSO[["RNA"]])
 # ╔════════════════════════════════════╗
 # ╠═ Find Markers and Save TSV output ═╣
 # ╚════════════════════════════════════╝
-MergedSO <- PrepSCTFindMarkers(MergedSO, assay = "SCT", verbose = TRUE)
+if (params.scaleMethod != "SD"){
+    MergedSO <- PrepSCTFindMarkers(MergedSO, assay = "SCT", verbose = TRUE)
+}
 
 for(i in 1:length(params.Resolutions)){
     print(paste0("Finding Unintegrated Markers at ",params.Resolutions[i]," resolution..."))

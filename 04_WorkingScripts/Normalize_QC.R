@@ -31,10 +31,38 @@ library(patchwork)
 args <- commandArgs(trailingOnly = TRUE)
 
 # Mitochondrial Genes
-if (toupper(args[1]) == "NULL"){
-  params.mito_genes <- "AUTO"
-} else {
-  params.mito_genes <- as.data.frame(read.table(args[1], header = F))
+params.mito_genes <- NULL
+tryCatch({
+    params.mito_genes <- read.csv(args[1])$MTgenes
+    params.mito_genes <- params.mito_genes[!(params.mito_genes == "" | is.na(params.mito_genes))]
+}, error = function(e) {
+    message("Gene List File not Provided -- Using Automatic MT detection")
+})
+if (length(params.mito_genes) == 0 ){
+    params.mito_genes <- NULL
+    message("MT Column of Gene List File is empty or does not exist -- Using Automatic MT detection")
+}
+
+# NULL means auto for logical checks
+params.g2m_genes <- NULL
+params.s_genes <- NULL
+tryCatch({
+    params.g2m_genes <- read.csv(args[1])$G2Mgenes
+    params.s_genes <- read.csv(args[1])$Sgenes
+    params.g2m_genes <- params.g2m_genes[!(params.g2m_genes == "" | is.na(params.g2m_genes))]
+    params.s_genes <- params.s_genes[!(params.s_genes == "" | is.na(params.s_genes))]
+}, error = function(e) {
+    message("Gene List File not Provided -- Using Default CC detection")
+})
+if (length(params.g2m_genes) == 0 | length(params.s_genes) == 0 ){
+    if (length(params.g2m_genes) == length(params.s_genes)) {
+        message("G2M and S gene Columns are empty or do not exist -- Using AUTO instead")
+        params.g2m_genes <- NULL
+        params.s_genes <- NULL
+    }else{
+        message("G2M or S gene list is empty -- Please fill both lists or leave them both empty (auto)")
+        quit(status = 1)    
+    }
 }
 
 # nFeature subset quantiles
@@ -54,6 +82,9 @@ params.SeuratObject <- args[7]
 # Sample Name
 params.sample_name <- args[8]
 
+# Run CC Score
+params.runCCScore <- args[9]
+
 # ╔════════════════════╗
 # ╠═ Load Seurat .rds ═╣
 # ╚════════════════════╝
@@ -63,17 +94,16 @@ assign(NameSO, readRDS(params.SeuratObject))
 # ╔════════════════════╗
 # ╠═ Calculate Mito % ═╣
 # ╚════════════════════╝
-if ("AUTO" %in% params.mito_genes){
+if ( length(params.mito_genes) == 0){
   params.regexs <- c('MT-', 'mt-', 'Mt-')
-}else if (length(params.mito_genes[,1]) == 1 && params.mito_genes != 'AUTO'){
-  params.regexs <- c(params.mito_genes[1])
-} else {
-  params.regexs <- c(0)
-}
+}else {
+  params.regexs <- c(params.mito_genes)
+} 
 
 calcMT <- function(SO, regex) {
-  if (regex[[1]] == 0){
-    mito.contig.sampSpec <- intersect(params.mito_genes[,1] , rownames(SO))
+    params.mito_genes
+  if (length(params.mito_genes) != 0){
+    mito.contig.sampSpec <- intersect(params.mito_genes , rownames(SO))
     SO[["percent.mt"]] <- PercentageFeatureSet(SO, features = mito.contig.sampSpec)
   }else {
     max <- -1
@@ -148,7 +178,6 @@ dev.off()
 new_features <- rownames(get(NameSO))
 
 for (i in 1:length(new_features)) {
-  
   gene <- new_features[i]
   gl <- unlist(strsplit(gene, ""))
   if ("_" %in% gl) {
@@ -157,17 +186,25 @@ for (i in 1:length(new_features)) {
   new_features[i] <- gene
 }
 
-SO.rn <- RenameGenesSeurat(get(NameSO),newnames = new_features, assay = "RNA")
-assign(NameSO, SO.rn)
+if (toupper(params.runCCScore) == "TRUE") {
+    SO.rn <- RenameGenesSeurat(get(NameSO),newnames = new_features, assay = "RNA")
+    assign(NameSO, SO.rn)
 
-g2m <- lapply(cc.genes.updated.2019$g2m.genes, toupper)
-s <- lapply(cc.genes.updated.2019$s.genes, toupper)
+    if (length(params.g2m_genes) == 0 & length(params.s_genes) == 0){
+        g2m <- lapply(cc.genes.updated.2019$g2m.genes, toupper)
+        s <- lapply(cc.genes.updated.2019$s.genes, toupper)
+    }else {
+        g2m <- lapply(gsub("_","-",params.g2m_genes), toupper)
+        s <- lapply(gsub("_","-",params.s_genes), toupper)
+    }
 
-upper_gns <- lapply(new_features, toupper)
+    upper_gns <- lapply(new_features, toupper)
 
-g2m_inSO <- new_features[upper_gns %in% g2m]
-s_inSO <- new_features[upper_gns %in% s]
-assign(NameSO, CellCycleScoring(get(NameSO), s.features = s_inSO, g2m.features = g2m_inSO, set.ident = TRUE))
+    g2m_inSO <- new_features[upper_gns %in% g2m]
+    s_inSO <- new_features[upper_gns %in% s]
+
+    assign(NameSO, CellCycleScoring(get(NameSO), s.features = s_inSO, g2m.features = g2m_inSO, set.ident = TRUE))
+}
 
 # ╔══════════════════════╗
 # ╠═ Save Seurat Object ═╣
@@ -187,9 +224,13 @@ cat(paste0("\nMin nFeature: ", minNFeature))
 cat(paste0("\nMax nCount: ", maxNCount))
 cat(paste0("\nMax nFeature: ", maxNFeature))
 cat("\n")
+if (toupper(params.runCCScore) == "TRUE") {
 cat(paste0("\nPct G2M: " ,(length(which(get(NameSO)@meta.data$Phase == "G2M"))/length(colnames(get(NameSO))))))
 cat(paste0("\nPct S: " ,(length(which(get(NameSO)@meta.data$Phase == "S"))/length(colnames(get(NameSO))))))
 cat(paste0("\nPct G1: " ,(length(which(get(NameSO)@meta.data$Phase == "G1"))/length(colnames(get(NameSO))))))
+}else{
+    cat("\nCell Cycle Scoring was skipped")
+}
 cat("\n")
 print("Seurat Object Status:")
 print(get(NameSO))

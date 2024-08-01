@@ -16,6 +16,7 @@
 # ╠═ Load Libraries ═╣
 # ╚══════════════════╝
 library(stringr)
+library(dplyr)
 library(Matrix)
 library(Seurat)
 library(SeuratObject)
@@ -31,9 +32,22 @@ params.data_directory <- args[1]
 
 # Which column to use for Seurat Obj. instantiation
 params.gene_identifier <- args[2]
+if (toupper(params.gene_identifier) == "GENE_ID"){
+    params.gene_column <- 1
+}else if (toupper(params.gene_identifier) == "GENE_NAME"){
+    params.gene_column <- 2
+}else {
+    params.gene_column <- 2
+}
 
 # File path for target gene list
-params.genes_2_rm <- args[3]
+params.genes_2_rm <- NULL
+tryCatch({
+    params.genes_2_rm <- read.csv(args[3])$RMgenes
+    params.genes_2_rm <- params.genes_2_rm[!(params.genes_2_rm == "" | is.na(params.genes_2_rm))]
+}, error = function(e) {
+    message("Gene List File not Provided -- Skipping Custom Gene Removal")
+})
 
 # Sample Name
 params.sample_name <- args[4]
@@ -50,7 +64,7 @@ params.min_features <- as.integer(args[7])
 # ╔═══════════════════╗
 # ╠═ Subset Features ═╣
 # ╚═══════════════════╝
-if (toupper(params.genes_2_rm) == "NULL"){
+if (length(params.genes_2_rm) == 0){
   if (substr(params.data_directory, nchar(params.data_directory), nchar(params.data_directory)) == "/"){
     feature_list  <- read.csv(paste0(params.data_directory, "features.tsv.gz"), sep = "\t", header = F)
     new_feat_list <- feature_list
@@ -60,27 +74,26 @@ if (toupper(params.genes_2_rm) == "NULL"){
   }
 }else{
   if (substr(params.data_directory, nchar(params.data_directory), nchar(params.data_directory)) == "/"){
-    gene_list     <- read.csv(params.genes_2_rm, sep = "\t", header = F)
-    feature_list  <- read.csv(paste0(params.data_directory, "features.tsv"), sep = "\t", header = F)
-    new_feat_list <- feature_list[-c(which(feature_list %in% gene_list))]
+    gene_list     <- params.genes_2_rm
+    feature_list  <- read.csv(paste0(params.data_directory, "features.tsv.gz"), sep = "\t", header = F)
+    if (params.gene_column == 1){
+        new_feat_list <- feature_list[-c(which(feature_list$V1 %in% gene_list)),]
+    }else{
+        new_feat_list <- feature_list[-c(which(feature_list$V2 %in% gene_list)),]
+    }
   }else{
-    gene_list     <- read.csv(params.genes_2_rm, sep = "\t", header = F)
-    feature_list  <- read.csv(paste0(params.data_directory, "/features.tsv"), sep = "\t", header = F)
-    new_feat_list <- feature_list[-c(which(feature_list %in% gene_list))]
+    gene_list     <- params.genes_2_rm
+    feature_list  <- read.csv(paste0(params.data_directory, "/features.tsv.gz"), sep = "\t", header = F)
+    if (params.gene_column == 1){
+        new_feat_list <- feature_list[-c(which(feature_list$V1 %in% gene_list)),]
+    }else{
+        new_feat_list <- feature_list[-c(which(feature_list$V2 %in% gene_list)),]
+    }
   }
 }
-
 # ╔════════════════════════════════╗
 # ╠═ Create 10X Object and Subset ═╣
 # ╚════════════════════════════════╝
-if (toupper(params.gene_identifier) == "GENE_ID"){
-  params.gene_column <- 1
-}else if (toupper(params.gene_identifier) == "GENE_NAME"){
-  params.gene_column <- 2
-}else {
-  params.gene_column <- 2
-}
-
 # Create raw 10X object
 Name10X <- params.sample_name
 assign(Name10X, Read10X(data.dir = params.data_directory, strip.suffix = T, gene.column = params.gene_column))

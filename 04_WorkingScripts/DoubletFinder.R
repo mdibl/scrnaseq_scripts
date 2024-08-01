@@ -154,7 +154,7 @@ params.CellsRecovered <- length(readLines((paste0(params.DataDir,"/",list.files(
 # ╠═ Identify Doublets ═╣
 # ╚═════════════════════╝
 #    (Percent Doublet is calculated based on a 0.8% increase per 1000 cells recovered as per the 10X website.)
-sweep.res.list_meta <- paramSweep(samp, PCs = 1:params.pcMax, sct = ifelse(toupper(params.scaleMethod) == "SCT", T,F) )
+sweep.res.list_meta <- paramSweep(samp, PCs = 1:params.pcMax, sct = ifelse(toupper(params.scaleMethod) == "SD", F,T) )
 sweep.stats_meta <- summarizeSweep(sweep.res.list_meta, GT = FALSE)
 bcmvn_meta <- find.pK(sweep.stats_meta)
 pK <- bcmvn_meta %>%
@@ -171,7 +171,7 @@ samp <- doubletFinder(samp,
                       pK = pK,
                       nExp = nExp_poi.adj,
                       reuse.pANN = F,
-                      sct = ifelse(toupper(params.scaleMethod) == "SCT", T,F))
+                      sct = ifelse(toupper(params.scaleMethod) == "SD", F,T))
 
 
 # Visualize and Count Doublets

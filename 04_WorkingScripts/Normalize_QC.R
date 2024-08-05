@@ -54,16 +54,6 @@ tryCatch({
 }, error = function(e) {
     message("Gene List File not Provided -- Using Default CC detection")
 })
-if (length(params.g2m_genes) == 0 | length(params.s_genes) == 0 ){
-    if (length(params.g2m_genes) == length(params.s_genes)) {
-        message("G2M and S gene Columns are empty or do not exist -- Using AUTO instead")
-        params.g2m_genes <- NULL
-        params.s_genes <- NULL
-    }else{
-        message("G2M or S gene list is empty -- Please fill both lists or leave them both empty (auto)")
-        quit(status = 1)    
-    }
-}
 
 # nFeature subset quantiles
 params.nfeature_lower <- args[2]
@@ -84,6 +74,41 @@ params.sample_name <- args[8]
 
 # Run CC Score
 params.runCCScore <- args[9]
+
+# ╔════════════════════╗
+# ╠═ CC Scoring Logic ═╣
+# ╚════════════════════╝
+if (length(params.g2m_genes) == 0 | length(params.s_genes) == 0 ){
+    if (length(params.g2m_genes) == length(params.s_genes)) {
+        message("G2M and S gene Columns are empty or do not exist -- Using AUTO")
+        params.g2m_genes <- NULL
+        params.s_genes <- NULL
+    }else{
+        message("G2M or S gene list is empty -- Please fill both lists or leave them both empty (auto)")
+        quit(status = 1)    
+    }
+}
+
+if (length(params.g2m_genes) == 0 & length(params.s_genes) == 0){
+    params.g2m_genes <- NULL
+    params.s_genes <- NULL
+    if (toupper(params.runCCScore) == "TRUE"){
+        message("Cell Cycle Soring -- Auto Gene Lists")
+    }else if (toupper(params.runCCScore) == "FALSE"){
+        message("Cell Cycle Soring -- Skipped")
+    }
+}else if (length(params.g2m_genes) != 0 & length(params.s_genes) != 0){
+    if (toupper(params.runCCScore) == "TRUE"){
+        message("Cell Cycle Soring -- Manual Gene Lists")
+    }else if (toupper(params.runCCScore) == "FALSE"){
+        message("Cell Cycle Scores are not being regressed but gene list is provided")
+        quit(status = 1)    
+    }
+}else {
+    message("G2M or S gene list is empty -- Please fill both lists or leave them both empty")
+    quit(status = 1)    
+}
+
 
 # ╔════════════════════╗
 # ╠═ Load Seurat .rds ═╣

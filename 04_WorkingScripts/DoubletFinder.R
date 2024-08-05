@@ -186,6 +186,12 @@ DoubletCount <- table(samp[[doubletmeta]])
 # ╚═══════════════════════╝
 samp <- subset(samp, subset = !!as.name(doubletmeta) == "Singlet"  )
 
+# ╔════════════════════╗
+# ╠═ Metadata Cleanup ═╣
+# ╚════════════════════╝
+samp[[doubletmeta]] <- NULL
+samp[["RNA_snn_res.0.8"]] <- NULL
+
 # ╔══════════════════════╗
 # ╠═ Save Seurat Object ═╣
 # ╚══════════════════════╝

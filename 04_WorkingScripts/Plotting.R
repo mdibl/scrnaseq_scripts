@@ -51,6 +51,9 @@ params.ProjectName <- args[5]
 # Make Loupe File T/F
 params.MakeLoupe <- args[6]
 
+# Loupe EULA 
+params.10xEULA <- args[7]
+
 # ╔════════════════════╗
 # ╠═ Load Seurat .rds ═╣
 # ╚════════════════════╝
@@ -160,6 +163,33 @@ if(toupper(params.MakeLoupe) == "TRUE"){
     )
 }
 
+# NEW
+
+EULAmessage <- NULL
+if(toupper(params.MakeLoupe) == "TRUE"){
+    if (toupper(params.10xEULA) == "AGREE"){
+        create_loupe(count_mat = MergedSO@assays$RNA$counts,
+                     clusters = select_clusters(MergedSO),
+                     projections = select_projections(MergedSO),
+                     output_name = params.ProjectName
+        )
+    } else {
+        message("WARNING: Loupe File set to TRUE but you have not agreed to the 10x EULA -- Set params.10xEULA to Agree to create Loupe File.")
+        EULAmessage <- "WARNING: Loupe File set to TRUE but you have not agreed to the 10x EULA -- Set params.10xEULA to Agree to create Loupe File."
+    }
+}else {
+    if (toupper(params.10xEULA) == "AGREE"){
+        create_loupe(count_mat = MergedSO@assays$RNA$counts,
+                     clusters = select_clusters(MergedSO),
+                     projections = select_projections(MergedSO),
+                     output_name = params.ProjectName
+        )
+        message("NOTE: Loupe File set to FALSE but you have agreed to the 10x EULA -- Loupe File has been made.")
+        EULAmessage <- "NOTE: Loupe File set to FALSE but you have agreed to the 10x EULA -- Loupe File has been made."
+        
+    }
+}
+
 # ╔══════════════════════╗
 # ╠═ Save Seurat Object ═╣
 # ╚══════════════════════╝
@@ -175,6 +205,9 @@ print(paste0("╠  Analysis Group: ", params.ProjectName))
 print("╚══════════════════════════════════════════════════════════════════════════════════════════════╝")
 print("Seurat Object Status:")
 print(MergedSO)
+if (length(EULAmessage) != 0){
+    print(EULAmessage)
+}
 sink()
 
 sink(paste0("07_",params.ProjectName,"_PlotVersions.log"))

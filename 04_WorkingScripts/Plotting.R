@@ -89,7 +89,7 @@ p4 <- FeaturePlot(MergedSO, reduction = "umap.unintegrated", pt.size = (-0.00001
 
 pdf(paste0(params.ProjectName,"UnintegratedUMAP.pdf"),width = 20, height = 15)
 p1 + p2 + p3 + p4 + plot_layout(design = Page1layout)
-tryCatch(expr = {DimPlot(object = MergedSO, reduction = 'umap.unintegrated', pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = "CIscCATCH")})
+try(expr = {DimPlot(object = MergedSO, reduction = 'umap.unintegrated', pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = "CIscCATCH")})
 for (i in params.Resolutions){
     print(DimPlot(object = MergedSO, reduction = 'umap.unintegrated', pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = paste0("unintegratedRes.",i), shuffle = T))
 }
@@ -105,7 +105,7 @@ p4 <- FeaturePlot(MergedSO, reduction = "tsne.unintegrated", pt.size = (-0.00001
 
 pdf(paste0(params.ProjectName,"UnintegratedTSNE.pdf"),width = 20, height = 15)
 p1 + p2 + p3 + p4 + plot_layout(design = Page1layout)
-tryCatch(expr = {DimPlot(object = MergedSO, reduction = 'tsne.unintegrated', pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = "CIscCATCH")})
+try(expr = {DimPlot(object = MergedSO, reduction = 'tsne.unintegrated', pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = "CIscCATCH")})
 for (i in params.Resolutions){
     print(DimPlot(object = MergedSO, reduction = 'tsne.unintegrated', pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = paste0("unintegratedRes.",i), shuffle = T))
 }
@@ -122,7 +122,7 @@ if (params.IntegrationMethod != "NULL"){
     p4 <- FeaturePlot(MergedSO, reduction = paste0("umap.",params.IntegrationMethod), pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "percent.mt", order = T) + scale_color_viridis(limits =c(min(MergedSO$percent.mt),max(MergedSO$percent.mt)), direction = -1)
 
     print(p1 + p2 + p3 + p4 + plot_layout(design = Page1layout))
-    tryCatch(expr = {print(DimPlot(object = MergedSO, reduction = paste0("umap.",params.IntegrationMethod), pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = "CIscCATCH"))})
+    try(expr = {print(DimPlot(object = MergedSO, reduction = paste0("umap.",params.IntegrationMethod), pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = "CIscCATCH"))})
     for (i in params.Resolutions){
         print(DimPlot(object = MergedSO, reduction = paste0("umap.",params.IntegrationMethod), pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = paste0(params.IntegrationMethod,"Res.",i)))
     }
@@ -144,7 +144,7 @@ if (params.IntegrationMethod != "NULL"){
     p4 <- FeaturePlot(MergedSO, reduction = paste0("tsne.",params.IntegrationMethod), pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "percent.mt", order = T) + scale_color_viridis(limits =c(min(MergedSO$percent.mt),max(MergedSO$percent.mt)), direction = -1)
     
     print(p1 + p2 + p3 + p4 + plot_layout(design = Page1layout))
-    tryCatch(expr = {print(DimPlot(object = MergedSO, reduction = paste0("tsne.",params.IntegrationMethod), pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = "CIscCATCH"))})
+    try(expr = {print(DimPlot(object = MergedSO, reduction = paste0("tsne.",params.IntegrationMethod), pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = "CIscCATCH"))})
     for (i in params.Resolutions){
         print(DimPlot(object = MergedSO, reduction = paste0("tsne.",params.IntegrationMethod), pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = paste0(params.IntegrationMethod,"Res.",i)))
     }

@@ -248,10 +248,10 @@ SaveSeuratRds(get(NameSO), file = paste0("01_",params.sample_name, "_NormQCSO.rd
 # ╠═ Save Log File ═╣
 # ╚═════════════════╝
 sink(paste0("01_",params.sample_name,"_NormQCValidation.log"))
-print("╔══════════════════════════════════════════════════════════════════════════════════════════════╗")
-print("╠  Normalize_QC.R log")
-print(paste0("╠  Sample: ", params.sample_name))
-print("╚══════════════════════════════════════════════════════════════════════════════════════════════╝")
+cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
+cat("╠  Normalize_QC.R log\n")
+cat(paste0("╠  Sample: ", params.sample_name,"\n"))
+cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
 cat(paste0("\nMin nCount: ", minNCount))
 cat(paste0("\nMin nFeature: ", minNFeature))
 cat(paste0("\nMax nCount: ", maxNCount))
@@ -265,28 +265,32 @@ cat(paste0("\nPct G1: " ,(length(which(get(NameSO)@meta.data$Phase == "G1"))/len
     cat("\nCell Cycle Scoring was skipped")
 }
 cat("\n")
-print("Seurat Object Status:")
+cat("Seurat Object Status:")
 print(get(NameSO))
 cat("\n")
 if(length(message1)!= 0){
-    print(message1)
+    cat(message1)
+    cat("\n")
 }
 if(length(message2)!= 0){
-    print(message2)
+    cat(message2)
+    cat("\n")
 }
 if(length(message3)!= 0){
-    print(message3)
+    cat(message3)
+    cat("\n")
 }
 if(length(message4)!= 0){
-    print(message4)
+    cat(message4)
+    cat("\n")
 }
 sink()
 
 
 sink(paste0("01_",params.sample_name,"_NormQCVersions.log"))
-print("╔══════════════════════════════════════════════════════════════════════════════════════════════╗")
-print("╠  Normalize_QC.R Versions")
-print(paste0("╠  Sample: ", params.sample_name))
-print("╚══════════════════════════════════════════════════════════════════════════════════════════════╝")
+cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
+cat("╠  Normalize_QC.R Versions\n")
+cat(paste0("╠  Sample: ", params.sample_name,"\n"))
+cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
 sessionInfo()
 sink()

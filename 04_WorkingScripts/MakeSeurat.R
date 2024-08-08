@@ -1,4 +1,4 @@
-#!/usr/local/bin/Rscript
+#!/opt/conda/envs/dolphinnext/bin/Rscript
 
 # ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
 # ╠═                                     Title: MakeSeurat.R                                    ═╣

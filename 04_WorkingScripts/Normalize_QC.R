@@ -31,16 +31,16 @@ library(patchwork)
 args <- commandArgs(trailingOnly = TRUE)
 
 # Mitochondrial Genes
+message1 <- NULL
 params.mito_genes <- NULL
 tryCatch({
     params.mito_genes <- read.csv(args[1])$MTgenes
     params.mito_genes <- params.mito_genes[!(params.mito_genes == "" | is.na(params.mito_genes))]
-}, error = function(e) {
-    message("Gene List File not Provided -- Using Automatic MT detection")
 })
 if (length(params.mito_genes) == 0 ){
     params.mito_genes <- NULL
-    message("MT Column of Gene List File is empty or does not exist -- Using Automatic MT detection")
+    message1 <- "WARNING:NORMALIZE_QC:MT Column of Gene List File is empty or does not exist -- Using Automatic MT detection"
+    message(message1)
 }
 
 # NULL means auto for logical checks
@@ -51,8 +51,6 @@ tryCatch({
     params.s_genes <- read.csv(args[1])$Sgenes
     params.g2m_genes <- params.g2m_genes[!(params.g2m_genes == "" | is.na(params.g2m_genes))]
     params.s_genes <- params.s_genes[!(params.s_genes == "" | is.na(params.s_genes))]
-}, error = function(e) {
-    message("Gene List File not Provided -- Using Default CC detection")
 })
 
 # nFeature subset quantiles
@@ -78,37 +76,45 @@ params.runCCScore <- args[9]
 # ╔════════════════════╗
 # ╠═ CC Scoring Logic ═╣
 # ╚════════════════════╝
+message2 <- NULL
 if (length(params.g2m_genes) == 0 | length(params.s_genes) == 0 ){
     if (length(params.g2m_genes) == length(params.s_genes)) {
-        message("G2M and S gene Columns are empty or do not exist -- Using AUTO")
+        message2 <- "WARNING:NORMALIZE_QC:G2M and S gene Columns are empty or do not exist -- Using AUTO"
+        message(message2)
         params.g2m_genes <- NULL
         params.s_genes <- NULL
     }else{
-        message("G2M or S gene list is empty -- Please fill both lists or leave them both empty (auto)")
+        message2 <- "ERROR:NORMALIZE_QC:G2M or S gene list is empty -- Please fill both lists or leave them both empty (auto)"
+        message(message2)
         quit(status = 1)    
     }
 }
 
+message3 <- NULL
 if (length(params.g2m_genes) == 0 & length(params.s_genes) == 0){
     params.g2m_genes <- NULL
     params.s_genes <- NULL
     if (toupper(params.runCCScore) == "TRUE"){
-        message("Cell Cycle Soring -- Auto Gene Lists")
+        message3 <- "WARNING:NORMALIZE_QC:Cell Cycle Soring -- Auto Gene Lists"
+        message(message3)
     }else if (toupper(params.runCCScore) == "FALSE"){
-        message("Cell Cycle Soring -- Skipped")
+        message3 <- "WARNING:NORMALIZE_QC:Cell Cycle Soring -- Skipped"
+        message(message3)
     }
 }else if (length(params.g2m_genes) != 0 & length(params.s_genes) != 0){
     if (toupper(params.runCCScore) == "TRUE"){
-        message("Cell Cycle Soring -- Manual Gene Lists")
+        message3 <- "NOTE:NORMALIZE_QC:Cell Cycle Soring -- Manual Gene Lists"
+        message(message3)
     }else if (toupper(params.runCCScore) == "FALSE"){
-        message("Cell Cycle Scores are not being regressed but gene list is provided")
+        message3 <- "ERROR:NORMALIZE_QC:Cell Cycle Scores are not being regressed but gene list is provided"
+        message(message3)
         quit(status = 1)    
     }
 }else {
-    message("G2M or S gene list is empty -- Please fill both lists or leave them both empty")
+    message3 <- "ERROR:NORMALIZE_QC:G2M or S gene list is empty -- Please fill both lists or leave them both empty"
+    message(message3)
     quit(status = 1)    
 }
-
 
 # ╔════════════════════╗
 # ╠═ Load Seurat .rds ═╣
@@ -147,8 +153,10 @@ calcMT <- function(SO, regex) {
 
 assign(NameSO, calcMT(get(NameSO), params.regexs))
 
+message4 <- NULL
 if (sum(get(NameSO)@meta.data$percent.mt) == 0){
-  cat("ERROR: Mitochondrial genes do not match features.tsv file or had 0 expression recorded. \nPlease ensure gene nomenclature is matching.")
+  message4 <- "ERROR:NORMALIZE_QC:Mitochondrial genes do not match features.tsv file or had 0 expression recorded. -- Please ensure gene nomenclature is matching."
+  message(message4)
   quit(status = 1)
 }
 
@@ -259,6 +267,19 @@ cat(paste0("\nPct G1: " ,(length(which(get(NameSO)@meta.data$Phase == "G1"))/len
 cat("\n")
 print("Seurat Object Status:")
 print(get(NameSO))
+cat("\n")
+if(length(message1)!= 0){
+    print(message1)
+}
+if(length(message2)!= 0){
+    print(message2)
+}
+if(length(message3)!= 0){
+    print(message3)
+}
+if(length(message4)!= 0){
+    print(message4)
+}
 sink()
 
 

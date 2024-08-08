@@ -208,7 +208,6 @@ if (params.IntegrationMethod != "NULL"){
     pdf(paste0(params.ProjectName,params.IntegrationMethod ,"SankeyPlot.pdf"), width = 20, height = 15)
     print(pl)
     dev.off()
-    
 }
 # ╔═══════════════╗
 # ╠═ Join Layers ═╣

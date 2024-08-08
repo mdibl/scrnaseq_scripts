@@ -41,12 +41,14 @@ if (toupper(params.gene_identifier) == "GENE_ID"){
 }
 
 # File path for target gene list
+message1 <- NULL
 params.genes_2_rm <- NULL
 tryCatch({
     params.genes_2_rm <- read.csv(args[3])$RMgenes
     params.genes_2_rm <- params.genes_2_rm[!(params.genes_2_rm == "" | is.na(params.genes_2_rm))]
 }, error = function(e) {
-    message("Gene List File not Provided -- Skipping Custom Gene Removal")
+    message1 <- "NOTE:MAKE_SEURAT:Gene List File not Provided -- Skipping Custom Gene Removal"
+    message(message1)
 })
 
 # Sample Name
@@ -128,6 +130,10 @@ print(paste0("Min Features: ", params.min_features))
 print("")
 print("Seurat Object Status:")
 print(get(NameSO))
+print("")
+if(length(message1)!= 0){
+    print(message1)
+}
 sink()
 
 sink(paste0("00_",params.sample_name,"_InitialVersions.log"))

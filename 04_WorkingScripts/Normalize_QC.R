@@ -33,7 +33,7 @@ args <- commandArgs(trailingOnly = TRUE)
 # Mitochondrial Genes
 message1 <- NULL
 params.mito_genes <- NULL
-tryCatch({
+try({
     params.mito_genes <- read.csv(args[1])$MTgenes
     params.mito_genes <- params.mito_genes[!(params.mito_genes == "" | is.na(params.mito_genes))]
 })
@@ -46,7 +46,7 @@ if (length(params.mito_genes) == 0 ){
 # NULL means auto for logical checks
 params.g2m_genes <- NULL
 params.s_genes <- NULL
-tryCatch({
+try({
     params.g2m_genes <- read.csv(args[1])$G2Mgenes
     params.s_genes <- read.csv(args[1])$Sgenes
     params.g2m_genes <- params.g2m_genes[!(params.g2m_genes == "" | is.na(params.g2m_genes))]

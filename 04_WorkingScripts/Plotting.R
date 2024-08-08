@@ -158,17 +158,6 @@ if(params.IntegrationMethod == "NULL"){
 # ╔═══════════════════╗
 # ╠═ Make Loupe File ═╣
 # ╚═══════════════════╝
-if(toupper(params.MakeLoupe) == "TRUE"){
-    #loupeR::setup()
-    create_loupe(count_mat = MergedSO@assays$RNA$counts,
-                 clusters = select_clusters(MergedSO),
-                 projections = select_projections(MergedSO),
-                 output_name = params.ProjectName
-    )
-}
-
-# NEW
-
 EULAmessage <- NULL
 if(toupper(params.MakeLoupe) == "TRUE"){
     if (toupper(params.10xEULA) == "AGREE"){

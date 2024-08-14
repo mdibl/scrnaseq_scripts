@@ -1,6 +1,6 @@
 bPPI.R README
 
-This script takes a PPI 3-column table from STRINGdb and creates a binary PPI matrix with gene names rather than protein names for a given organism.
+This script takes a PPI 3-column table from STRINGdb and creates a binary PPI matrix (non-directional) with gene names rather than protein names for a given organism.
 
 dataset: The user must specify the ensembl dataset from which to pull the gene-to-protein table.
 gene_protein_output: Path to save output

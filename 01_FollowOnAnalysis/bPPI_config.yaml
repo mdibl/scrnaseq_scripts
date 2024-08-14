@@ -1,0 +1,9 @@
+---
+dataset: "nfurzeri_gene_ensembl"
+gene_protein_output: "ATK_gene2protein.csv"
+ppi_file: "STRG0A87GXF.protein.links.v12.0.txt"
+bppi_output: "ATK_bPPI.csv"
+threshold: 600
+prefix: "ENS"
+strip_version: true
+verbose: true

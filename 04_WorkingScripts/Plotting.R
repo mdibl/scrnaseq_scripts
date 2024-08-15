@@ -24,7 +24,6 @@ library(Seurat)
 library(SeuratObject)
 library(ggplot2)
 library(patchwork)
-library(loupeR)
 
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
@@ -161,6 +160,8 @@ if(params.IntegrationMethod == "NULL"){
 EULAmessage <- NULL
 if(toupper(params.MakeLoupe) == "TRUE"){
     if (toupper(params.10xEULA) == "AGREE"){
+        library(loupeR)
+        loupeR::setup()
         create_loupe(count_mat = MergedSO@assays$RNA$counts,
                      clusters = select_clusters(MergedSO),
                      projections = select_projections(MergedSO),
@@ -172,6 +173,8 @@ if(toupper(params.MakeLoupe) == "TRUE"){
     }
 }else {
     if (toupper(params.10xEULA) == "AGREE"){
+        library(loupeR)
+        loupeR::setup()
         create_loupe(count_mat = MergedSO@assays$RNA$counts,
                      clusters = select_clusters(MergedSO),
                      projections = select_projections(MergedSO),

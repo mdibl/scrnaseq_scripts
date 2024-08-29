@@ -22,6 +22,9 @@ library(Seurat)
 library(SeuratObject)
 library(ggplot2)
 library(ggsankey)
+library(ggcorrplot)
+library(ggdendro)
+library(viridis)
 library(patchwork)
 library(presto)
 
@@ -260,6 +263,52 @@ if (params.IntegrationMethod != "NULL") {
         write.table(get(paste0("IntegratedMarkersRes",params.Resolutions[j])), file = paste0("markers/integrated/",params.IntegrationMethod,"MarkersRes",params.Resolutions[j],".tsv"), sep = "\t", quote = F,row.names = F)
         rm(markertemp)
     }
+}
+
+# ╔═══════════════════╗
+# ╠═ Run Correlation ═╣
+# ╚═══════════════════╝
+VarGenes <- VariableFeatures(MergedSO)
+pdf(paste0(params.ProjectName,"UnintegratedCorPlot.pdf"), width = 20, height = 12)
+for(i in 1:length(params.Resolutions)){
+    AvgExp <- as.data.frame(AggregateExpression(MergedSO, features = VarGenes, group.by = paste0("unintegratedRes.",params.Resolutions[i]))$RNA)
+    colnames(AvgExp) <- gsub("^g","Clust: ", colnames(AvgExp))
+    Cor <- cor(AvgExp, method = "pearson")
+    Dist <- as.dist(1 - Cor)
+    DistHClust <- hclust(Dist)
+    Order <- DistHClust$labels[DistHClust$order]
+    Cor <- Cor[Order,]
+    Cor <- Cor[,Order]
+    p1 <- ggcorrplot(Cor) + scale_fill_gradientn(colors = viridis(256, option = 'D' ,direction = -1)) + ggtitle(paste0("unintegratedRes.",params.Resolutions[i]))
+    p2 <- ggdendrogram(DistHClust, rotate = F)
+    print(p1 + p2)
+    Order <- gsub("^Clust: ","", Order)
+    MergedSO@meta.data[[paste0("unintegratedRes.",params.Resolutions[i])]] <- factor(MergedSO@meta.data[[paste0("unintegratedRes.",params.Resolutions[i])]],levels = Order)
+}
+dev.off()
+
+pdf(paste0(params.ProjectName,params.IntegrationMethod ,"CorPlot.pdf"), width = 20, height = 12)
+if (params.IntegrationMethod != "NULL"){
+    for(i in 1:length(params.Resolutions)){
+        AvgExp <- as.data.frame(AggregateExpression(MergedSO, features = VarGenes, group.by = paste0(params.IntegrationMethod,"Res.",params.Resolutions[i]))$RNA)
+        colnames(AvgExp) <- gsub("^g","Clust: ", colnames(AvgExp))
+        Cor <- cor(AvgExp, method = "pearson")
+        Dist <- as.dist(1 - Cor)
+        DistHClust <- hclust(Dist)
+        Order <- DistHClust$labels[DistHClust$order]
+        Cor <- Cor[Order,]
+        Cor <- Cor[,Order]
+        p1 <- ggcorrplot(Cor) + scale_fill_gradientn(colors = viridis(256, option = 'D' ,direction = -1)) + ggtitle(paste0(params.IntegrationMethod,"Res.",params.Resolutions[i]))
+        p2 <- ggdendrogram(DistHClust, rotate = F)
+        print(p1 + p2)
+        Order <- gsub("^Clust: ","", Order)
+        MergedSO@meta.data[[paste0(params.IntegrationMethod,"Res.",params.Resolutions[i])]] <- factor(MergedSO@meta.data[[paste0(params.IntegrationMethod,"Res.",params.Resolutions[i])]],levels = Order )
+    }
+}
+dev.off()
+
+if(params.IntegrationMethod == "NULL"){
+    file.remove(paste0(params.ProjectName,params.IntegrationMethod ,"CorPlot.pdf"))
 }
 
 # ╔══════════════════════╗

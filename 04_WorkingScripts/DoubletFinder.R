@@ -123,7 +123,24 @@ x = ElbowPoints$dims
 y = ElbowPoints$stdev
 df <- data.frame(x,y)
 
-pc_tbl <- findPC(sdev = ElbowPoints[[ident]], number = 100, method = "all", figure = F)
+
+for (i in 1:length(ElbowPoints$stdev)) {
+    tmp <- ElbowPoints$stdev[i]
+    if (i == length(ElbowPoints$stdev)){
+        break
+    }
+    if (ElbowPoints$stdev[i+1] == tmp){
+        selectedDims <- ElbowPoints$dims[i]
+    }
+}
+
+if (exists('selectedDims')){
+    selectedDims <- selectedDims
+} else {
+    selectedDims <- 100
+}
+
+pc_tbl <- findPC(sdev = ElbowPoints[[ident]], number = selectedDims, method = "all", figure = F)
 params.pcMax <- mean(x = c(pc_tbl[1,2], pc_tbl[1,3], pc_tbl[1,4]))
 params.pcMax <- ceiling(params.pcMax)
 
@@ -205,6 +222,7 @@ cat("╔════════════════════════
 cat("╠  DoubletFinder.R log\n")
 cat(paste0("╠  Sample: ", params.sampleName,"\n"))
 cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝")
+cat(paste0("Number of Dims used for auto PC detection: ", selectedDims, "\n"))
 cat(paste0("PCs used: 1 - ", params.pcMax,"\n"))
 cat("pN (proportion of artifical doublets) set to: 0.25\n")
 cat(paste0("pK (PC neighborhood size used to compute pANN) set to: ", pK,"\n"))

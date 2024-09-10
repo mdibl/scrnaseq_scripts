@@ -47,7 +47,7 @@ params.data_directory <- args[1]
 params.gene_identifier <- args[2]
 if (toupper(params.gene_identifier) == "GENE_ID"){
     params.gene_column <- 1
-}else if (toupper(params.gene_identifier) == "GENE_NAME"){
+}else if (toupper(params.gene_identifier) == "GENE_NAME" || "COMBINED"){
     params.gene_column <- 2
 }else {
     params.gene_column <- 2

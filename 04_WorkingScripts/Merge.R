@@ -23,9 +23,23 @@ library(Seurat)
 library(SeuratObject)
 library(patchwork)
 
+# ╔══════════════════════════╗
+# ╠═ Initiate Execution Log ═╣
+# ╚══════════════════════════╝
+ExecutionLog <- file(paste0("03_",params.ProjectName,"_MergeExecution.log"), open = "wt")
+sink(ExecutionLog)
+cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
+cat("╠  Merge.R Execution log\n")
+cat(paste0("╠  Analysis Group: ", params.ProjectName,"\n"))
+cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
+cat("\n")
+sink()
+sink(ExecutionLog, type = "message")
+
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
 # ╚══════════════════════╝
+message("Reading in Parameters")
 args <- commandArgs(trailingOnly = TRUE)
 
 # Project Name for this analysis group
@@ -46,6 +60,7 @@ params.scaleMethod <- args[4]
 # ╔════════════════════╗
 # ╠═ Load Seurat .rds ═╣
 # ╚════════════════════╝
+message("Loading in Seurat Objects")
 SeuratRDSfiles <- list.files(pattern = "\\.rds$", ignore.case = T)
 SampleNames <- c()
 
@@ -69,15 +84,16 @@ MergedSO@assays$SCT <- NULL
 DefaultAssay(object = MergedSO) <- "RNA"
 
 
-### ADDED NOT WORKING ATM
-# ╔═══════════════════════════════════════════╗
-# ╠═ Normalize Data & Find Variable Features ═╣
-# ╚═══════════════════════════════════════════╝
+# ╔══════════════════╗
+# ╠═ Normalize Data ═╣
+# ╚══════════════════╝
+message("Normalizing Data")
 MergedSO <- NormalizeData(MergedSO)
 
 # ╔═════════════════════════════════════╗
 # ╠═ Generate Merged Post-Filter Plots ═╣
 # ╚═════════════════════════════════════╝
+message("Generating Merged Post-Filter Plots")
 plot1 <- FeatureScatter(MergedSO, feature1 = "nCount_RNA", feature2 = "percent.mt", shuffle = T, group.by = "orig.ident")
 plot2 <- FeatureScatter(MergedSO, feature1 = "nCount_RNA", feature2 = "nFeature_RNA", shuffle = T, group.by = "orig.ident")
 vplot1 <- VlnPlot(MergedSO, features = c("nCount_RNA","nFeature_RNA","percent.mt"),pt.size = -1, group.by = "orig.ident")
@@ -90,6 +106,7 @@ dev.off()
 # ╔══════════════════════════════╗
 # ╠═ Scale Merged Seurat Object ═╣
 # ╚══════════════════════════════╝
+message("Scaling Merged Seurat Object")
 # create a list of all genes
 all.genes <- rownames(MergedSO)
 
@@ -113,14 +130,20 @@ if (params.scaleMethod == "SD"){
 # ╔══════════════════════╗
 # ╠═ Save Seurat Object ═╣
 # ╚══════════════════════╝
+message("Saving Seurat Object")
 saveRDS(MergedSO, paste0("03_", params.ProjectName,"_MergedSO.rds"))
+
+# ╔═══════════════════════╗
+# ╠═ Close Execution Log ═╣
+# ╚═══════════════════════╝
+sink(type = "message")
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣
 # ╚═════════════════╝
 sink(paste0("03_",params.ProjectName,"_MergeValidation.log"))
 cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
-cat("╠  Merge.R log\n")
+cat("╠  Merge.R Validation log\n")
 cat(paste0("╠  Analysis Group: ", params.ProjectName,"\n"))
 cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
 cat("Seurat Object Status:\n")

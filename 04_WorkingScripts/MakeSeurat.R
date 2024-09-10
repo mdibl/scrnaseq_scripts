@@ -21,9 +21,22 @@ library(Matrix)
 library(Seurat)
 library(SeuratObject)
 
+# ╔══════════════════════════╗
+# ╠═ Initiate Execution Log ═╣
+# ╚══════════════════════════╝
+ExecutionLog <- file(paste0("00_",params.sample_name,"_InitialExecution.log"), open = "wt")
+sink(ExecutionLog)
+cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
+cat("╠  MakeSeurat.R Execution log\n")
+cat(paste0("╠  Sample: ", params.sample_name,"\n"))
+cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
+cat("\n")
+sink()
+sink(ExecutionLog, type = "message")
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
 # ╚══════════════════════╝
+message("Reading in Parameters")
 # Read in trailing arguments
 args <- commandArgs(trailingOnly = TRUE)
 
@@ -66,6 +79,7 @@ params.min_features <- as.integer(args[7])
 # ╔═══════════════════╗
 # ╠═ Subset Features ═╣
 # ╚═══════════════════╝
+message("Subsetting Features")
 if (length(params.genes_2_rm) == 0){
   if (substr(params.data_directory, nchar(params.data_directory), nchar(params.data_directory)) == "/"){
     feature_list  <- read.csv(paste0(params.data_directory, "features.tsv.gz"), sep = "\t", header = F)
@@ -93,9 +107,11 @@ if (length(params.genes_2_rm) == 0){
     }
   }
 }
+
 # ╔════════════════════════════════╗
 # ╠═ Create 10X Object and Subset ═╣
 # ╚════════════════════════════════╝
+message("Creating 10X Object and Subsetting")
 # Create raw 10X object
 Name10X <- params.sample_name
 assign(Name10X, Read10X(data.dir = params.data_directory, strip.suffix = T, gene.column = params.gene_column))
@@ -107,20 +123,27 @@ assign(Name10XAnnotated, get(params.sample_name)[which(rownames(get(params.sampl
 # ╔════════════════════════╗
 # ╠═ Create Seurat Object ═╣
 # ╚════════════════════════╝
+message("Creating Seurat Object")
 NameSO <- paste0("SO_",params.sample_name)
 assign(NameSO, CreateSeuratObject(counts = get(Name10XAnnotated), project = params.sample_name, min.cells = params.min_cells, min.features = params.min_features))
 
 # ╔══════════════════════╗
 # ╠═ Save Seurat Object ═╣
 # ╚══════════════════════╝
+message("Saving Seurat Object")
 SaveSeuratRds(get(NameSO), file = paste0("00_",params.sample_name, "_InitalSO.rds"))
+
+# ╔═══════════════════════╗
+# ╠═ Close Execution Log ═╣
+# ╚═══════════════════════╝
+sink(type = "message")
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣
 # ╚═════════════════╝
 sink(paste0("00_",params.sample_name,"_InitialValidation.log"))
 cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
-cat("╠  MakeSeurat.R log\n")
+cat("╠  MakeSeurat.R Validation log\n")
 cat(paste0("╠  Sample: ", params.sample_name,"\n"))
 cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
 cat(paste0("Gene Identifier: ", params.gene_identifier,"\n"))

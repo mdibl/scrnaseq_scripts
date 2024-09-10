@@ -22,9 +22,23 @@ library(Matrix)
 library(Seurat)
 library(SeuratObject)
 
+# ╔══════════════════════════╗
+# ╠═ Initiate Execution Log ═╣
+# ╚══════════════════════════╝
+ExecutionLog <- file(paste0("05_",params.ProjectName,"_IntegrateExecution.log"), open = "wt")
+sink(ExecutionLog)
+cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
+cat("╠  Integration.R Execution log\n")
+cat(paste0("╠  Analysis Group: ", params.ProjectName,"\n"))
+cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
+cat("\n")
+sink()
+sink(ExecutionLog, type = "message")
+
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
 # ╚══════════════════════╝
+message("Reading in Parameters")
 args <- commandArgs(trailingOnly = TRUE)
 
 # RDS file from QC
@@ -42,11 +56,13 @@ params.scaleMethod <- args[4]
 # ╔════════════════════╗
 # ╠═ Load Seurat .rds ═╣
 # ╚════════════════════╝
+message("Loading Seurat Object")
 MergedSO <- readRDS(params.SeuratObject)
 
 # ╔═══════════════════╗
 # ╠═ Run Integration ═╣
 # ╚═══════════════════╝
+message("Running Integration")
 if(params.IntegrationMethod == "FastMNN"){
     if(params.scaleMethod == "SD"){
         MergedSO <- IntegrateLayers(object = MergedSO, method = paste0(params.IntegrationMethod,"Integration"), new.reduction = paste0("integrated.",params.IntegrationMethod))
@@ -64,14 +80,20 @@ if(params.IntegrationMethod == "FastMNN"){
 # ╔══════════════════════╗
 # ╠═ Save Seurat Object ═╣
 # ╚══════════════════════╝
+message("Saving Seurat Object")
 SaveSeuratRds(MergedSO, file = paste0("05_",params.ProjectName, "_IntegrateSO.rds"))
+
+# ╔═══════════════════════╗
+# ╠═ Close Execution Log ═╣
+# ╚═══════════════════════╝
+sink(type = "message")
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣
 # ╚═════════════════╝
 sink(paste0("05_",params.ProjectName,"_IntegrateValidation.log"))
 cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
-cat("╠  Integration.R log\n")
+cat("╠  Integration.R Validation log\n")
 cat(paste0("╠  Analysis Group: ", params.ProjectName,"\n"))
 cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
 cat("Seurat Object Status:\n")

@@ -25,9 +25,23 @@ library(Seurat.utils)
 library(ggplot2)
 library(patchwork)
 
+# ╔══════════════════════════╗
+# ╠═ Initiate Execution Log ═╣
+# ╚══════════════════════════╝
+ExecutionLog <- file(paste0("01_",params.sample_name,"_NormQCExecution.log"), open = "wt")
+sink(ExecutionLog)
+cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
+cat("╠  Normalize_QC.R Execution log\n")
+cat(paste0("╠  Sample: ", params.sample_name,"\n"))
+cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
+cat("\n")
+sink()
+sink(ExecutionLog, type = "message")
+
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
 # ╚══════════════════════╝
+message("Reading in Parameters")
 args <- commandArgs(trailingOnly = TRUE)
 
 # Mitochondrial Genes
@@ -76,6 +90,7 @@ params.runCCScore <- args[9]
 # ╔════════════════════╗
 # ╠═ CC Scoring Logic ═╣
 # ╚════════════════════╝
+message("Preparing for Cell Cycle Scoring")
 message2 <- NULL
 if (length(params.g2m_genes) == 0 | length(params.s_genes) == 0 ){
     if (length(params.g2m_genes) == length(params.s_genes)) {
@@ -119,12 +134,14 @@ if (length(params.g2m_genes) == 0 & length(params.s_genes) == 0){
 # ╔════════════════════╗
 # ╠═ Load Seurat .rds ═╣
 # ╚════════════════════╝
+message("Loading Seurat Object")
 NameSO <- params.sample_name
 assign(NameSO, readRDS(params.SeuratObject))
 
 # ╔════════════════════╗
 # ╠═ Calculate Mito % ═╣
 # ╚════════════════════╝
+message("Caculating Mitochondrial Percentage")
 if ( length(params.mito_genes) == 0){
   params.regexs <- c('MT-', 'mt-', 'Mt-')
 }else {
@@ -163,12 +180,14 @@ if (sum(get(NameSO)@meta.data$percent.mt) == 0){
 # ╔═══════════════════════════════════════════╗
 # ╠═ Normalize Data & Find Variable Features ═╣
 # ╚═══════════════════════════════════════════╝
+message("Normalizing Data and Finding Variable Genes")
 assign(NameSO, NormalizeData(get(NameSO)))
 assign(NameSO, FindVariableFeatures(get(NameSO)))
 
 # ╔═════════════════════════════╗
 # ╠═ Generate Pre-Filter Plots ═╣
 # ╚═════════════════════════════╝
+message("Generating Pre-Filter Plots")
 plot1 <- FeatureScatter(get(NameSO), feature1 = "nCount_RNA", feature2 = "percent.mt", shuffle = T)
 plot2 <- FeatureScatter(get(NameSO), feature1 = "nCount_RNA", feature2 = "nFeature_RNA", shuffle = T)
 vplot1 <- VlnPlot(get(NameSO), features = c("nCount_RNA","nFeature_RNA","percent.mt"),pt.size = -1)
@@ -181,6 +200,7 @@ dev.off()
 # ╔═══════════════════════╗
 # ╠═ Subset via Metadata ═╣
 # ╚═══════════════════════╝
+message("Subsetting Seurat Object via Metadata")
 minNCount         <- quantile(get(NameSO)$nCount_RNA, probs = seq(0,1,0.05))[[paste0(params.ncount_lower, "%")]]
 minNFeature       <- quantile(get(NameSO)$nFeature_RNA, probs = seq(0,1,0.05))[[paste0(params.nfeature_lower, "%")]]
 maxNCount         <- quantile(get(NameSO)$nCount_RNA, probs = seq(0,1,0.05))[[paste0(params.ncount_upper, "%")]]
@@ -196,6 +216,7 @@ assign(NameSO,subset(get(NameSO), subset = nFeature_RNA > minNFeature & nCount_R
 # ╔══════════════════════════════╗
 # ╠═ Generate Post-Filter Plots ═╣
 # ╚══════════════════════════════╝
+message("Generating Post-Filter Plots")
 plot1 <- FeatureScatter(get(NameSO), feature1 = "nCount_RNA", feature2 = "percent.mt", shuffle = T)
 plot2 <- FeatureScatter(get(NameSO), feature1 = "nCount_RNA", feature2 = "nFeature_RNA", shuffle = T)
 vplot1 <- VlnPlot(get(NameSO), features = c("nCount_RNA","nFeature_RNA","percent.mt"),pt.size = -1)
@@ -208,6 +229,7 @@ dev.off()
 # ╔════════════════════════════════════════╗
 # ╠═ Cell Cycle Scoring & Rename Features ═╣
 # ╚════════════════════════════════════════╝
+message("Calculating Cell Cycle Scores and Renaming Features")
 new_features <- rownames(get(NameSO))
 
 for (i in 1:length(new_features)) {
@@ -242,14 +264,20 @@ if (toupper(params.runCCScore) == "TRUE") {
 # ╔══════════════════════╗
 # ╠═ Save Seurat Object ═╣
 # ╚══════════════════════╝
+message("Saving Seurat Object")
 SaveSeuratRds(get(NameSO), file = paste0("01_",params.sample_name, "_NormQCSO.rds"))
+
+# ╔═══════════════════════╗
+# ╠═ Close Execution Log ═╣
+# ╚═══════════════════════╝
+sink(type = "message")
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣
 # ╚═════════════════╝
 sink(paste0("01_",params.sample_name,"_NormQCValidation.log"))
 cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
-cat("╠  Normalize_QC.R log\n")
+cat("╠  Normalize_QC.R Validation log\n")
 cat(paste0("╠  Sample: ", params.sample_name,"\n"))
 cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
 cat(paste0("\nMin nCount: ", minNCount))

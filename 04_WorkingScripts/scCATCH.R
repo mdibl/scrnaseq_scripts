@@ -22,9 +22,23 @@ library(Seurat)
 library(SeuratObject)
 library(scCATCH)
 
+# ╔══════════════════════════╗
+# ╠═ Initiate Execution Log ═╣
+# ╚══════════════════════════╝
+ExecutionLog <- file(paste0("07_",params.ProjectName,"_scCATCHExecution.log"), open = "wt")
+sink(ExecutionLog)
+cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
+cat("╠  scCATCH.R Execution log\n")
+cat(paste0("╠  Analysis Group: ", params.ProjectName,"\n"))
+cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
+cat("\n")
+sink()
+sink(ExecutionLog, type = "message")
+
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
 # ╚══════════════════════╝
+message("Reading in Parameters")
 args <- commandArgs(trailingOnly = TRUE)
 
 # RDS file from QC
@@ -61,6 +75,7 @@ params.ProjectName <- args[7]
 # ╔══════════════════╗
 # ╠═ Organism Check ═╣
 # ╚══════════════════╝
+message("Checking Orgamism Compatability")
 message1 <- NULL
 if (toupper(params.Organism) == "HUMAN" | 
     toupper(params.Organism) == "HSAPIENS" | 
@@ -89,6 +104,7 @@ if (toupper(params.Organism) == "HUMAN" |
 # ╔════════════════╗
 # ╠═ Tissue Check ═╣
 # ╚════════════════╝
+message("Chcking Tissue Types")
 message2 <- NULL
 cellMatchOrg <- subset(cellmatch, subset = cellmatch$species == params.Organism)
 
@@ -104,11 +120,13 @@ for (i in params.Tissue ){
 # ╔════════════════════╗
 # ╠═ Load Seurat .rds ═╣
 # ╚════════════════════╝
+message("Loading in Seurat Object")
 MergedSO <- readRDS(params.SeuratObject)
 
 # ╔═════════════════════════╗
 # ╠═ Create scCATCH Object ═╣
 # ╚═════════════════════════╝
+message("Creating scCATCH Object")
 if (params.scaleMethod == "SD"){ 
     MergedDGC <- MergedSO[['RNA']]$data
 }else {
@@ -121,6 +139,7 @@ MergedDGC@Dimnames <- MergedDGC@Dimnames[-c(1,2)]
 # ╔══════════════════════╗
 # ╠═ Run scCATCH Object ═╣
 # ╚══════════════════════╝
+message("Running scCATCH")
 MergedDGC <- rev_gene(data = MergedDGC, data_type = "data", species = params.Organism, geneinfo = geneinfo)
 Clusterings <- as.character(MergedSO[[paste0(params.IntegrationMethod,"Res.",params.Resolution)]][,1])
 MergedSCCO <- createscCATCH(data = MergedDGC, cluster = Clusterings)
@@ -131,6 +150,7 @@ MergedSCCO <- findcelltype(object = MergedSCCO)
 # ╔══════════════════════════════════════╗
 # ╠═ Add Cell Identity to Seurat Object ═╣
 # ╚══════════════════════════════════════╝
+message("Adding Cell Identity to Seurat Object")
 MergedSO$CIscCATCH <- MergedSO[[paste0(params.IntegrationMethod,"Res.",params.Resolution)]][,1]
 
 Cellframe <- as.data.frame(list(Cluster = MergedSO$CIscCATCH))
@@ -147,14 +167,20 @@ MergedSO$CIscCATCH <- Namedframe$CellType
 # ╔══════════════════════╗
 # ╠═ Save Seurat Object ═╣
 # ╚══════════════════════╝
+message("Saving Seurat Object")
 SaveSeuratRds(MergedSO, file = paste0("07",params.ProjectName, "_scCATCHSO.rds"))
+
+# ╔═══════════════════════╗
+# ╠═ Close Execution Log ═╣
+# ╚═══════════════════════╝
+sink(type = "message")
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣
 # ╚═════════════════╝
 sink(paste0("07_",params.ProjectName,"_scCATCHValidation.log"))
 cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
-cat("╠  scCATCH.R log\n")
+cat("╠  scCATCH.R Validation log\n")
 cat(paste0("╠  Analysis Group: ", params.ProjectName,"\n"))
 cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
 cat("Seurat Object Status:\n")

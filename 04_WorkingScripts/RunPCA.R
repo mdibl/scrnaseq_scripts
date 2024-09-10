@@ -25,9 +25,23 @@ library(SeuratObject)
 library(ggplot2)
 library(findPC)
 
+# ╔══════════════════════════╗
+# ╠═ Initiate Execution Log ═╣
+# ╚══════════════════════════╝
+ExecutionLog <- file(paste0("04_", params.ProjectName,"_PCAExecution.log"), open = "wt")
+sink(ExecutionLog)
+cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
+cat("╠  RunPCA.R Execution log\n")
+cat(paste0("╠  Analysis Group: ", params.ProjectName,"\n"))
+cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
+cat("\n")
+sink()
+sink(ExecutionLog, type = "message")
+
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
 # ╚══════════════════════╝
+message("Reading in Parameters")
 args <- commandArgs(trailingOnly = TRUE)
 
 # Load RDS
@@ -42,11 +56,13 @@ params.ProjectName <- args[3]
 # ╔═══════════╗
 # ╠═ Run PCA ═╣
 # ╚═══════════╝
+message("Running PCA")
 MergedSO <- RunPCA(MergedSO, npcs = 100)
 
 # ╔═══════════════╗
 # ╠═ Find PC Max ═╣
 # ╚═══════════════╝
+message("Finding PC Max")
 Elbow <- ElbowPlot(MergedSO,  ndims = 100, reduction = "pca")
 ElbowPoints <- Elbow$data
 
@@ -123,8 +139,13 @@ dev.off()
 # ╔══════════════════════╗
 # ╠═ Save Seurat Object ═╣
 # ╚══════════════════════╝
+message("Saving Seurat Object")
 SaveSeuratRds(MergedSO, file = paste0("04_", params.ProjectName, "_PCASO.rds"))
 
+# ╔═══════════════════════╗
+# ╠═ Close Execution Log ═╣
+# ╚═══════════════════════╝
+sink(type = "message")
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣
@@ -134,7 +155,7 @@ my_summary <- summary(loess)
 
 sink(paste0("04_", params.ProjectName,"_PCAValidation.log"))
 cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
-cat("╠  RunPCA.R log\n")
+cat("╠  RunPCA.R Validation log\n")
 cat(paste0("╠  Analysis Group: ", params.ProjectName,"\n"))
 cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
 cat("Loess Summary: \n")

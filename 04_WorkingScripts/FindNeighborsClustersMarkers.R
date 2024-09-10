@@ -28,9 +28,23 @@ library(viridis)
 library(patchwork)
 library(presto)
 
+# ╔══════════════════════════╗
+# ╠═ Initiate Execution Log ═╣
+# ╚══════════════════════════╝
+ExecutionLog <- file(paste0("06_",params.ProjectName,"_ClusterExecution.log"), open = "wt")
+sink(ExecutionLog)
+cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
+cat("╠  FindNeighborsClustersMarkers.R Execution log\n")
+cat(paste0("╠  Analysis Group: ", params.ProjectName,"\n"))
+cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
+cat("\n")
+sink()
+sink(ExecutionLog, type = "message")
+
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
 # ╚══════════════════════╝
+message("Reading in Parameters")
 args <- commandArgs(trailingOnly = TRUE)
 
 # RDS file from QC
@@ -57,6 +71,7 @@ params.scaleMethod <- args[6]
 # ╔══════════════════════╗
 # ╠═ Create Directories ═╣
 # ╚══════════════════════╝
+message("Creating Marker Directories")
 dir.create("markers")
 dir.create("markers/unintegrated/")
 if (params.IntegrationMethod != "NULL"){
@@ -66,12 +81,14 @@ if (params.IntegrationMethod != "NULL"){
 # ╔════════════════════╗
 # ╠═ Load Seurat .rds ═╣
 # ╚════════════════════╝
+message("Loading in Seurat Object")
 MergedSO <- readRDS(params.SeuratObject)
 
 
 # ╔════════════════════════════════════╗
 # ╠═ Find Neighbors and Find Clusters ═╣
 # ╚════════════════════════════════════╝
+message("Finding Neighbors and Clusters")
 # Generate Resolution Names -- unintegrated
 count <- 1
 countMax <- length(params.Resolutions)
@@ -109,6 +126,7 @@ if (params.IntegrationMethod != "NULL"){
 # ╔════════════════════════╗
 # ╠═ Generate Sankey Plot ═╣
 # ╚════════════════════════╝
+message("Generating Sankey Plots")
 mergedSOmetaRes <- MergedSO@meta.data
 mergedSOmetaRes <- mergedSOmetaRes[,grepl("^unintegratedRes",names(mergedSOmetaRes))]
 names(mergedSOmetaRes) <- gsub("unintegratedRes","res",names(mergedSOmetaRes))
@@ -215,12 +233,13 @@ if (params.IntegrationMethod != "NULL"){
 # ╔═══════════════╗
 # ╠═ Join Layers ═╣
 # ╚═══════════════╝
-
+message("Joining Layers")
 MergedSO[["RNA"]] <- JoinLayers(MergedSO[["RNA"]])
 
 # ╔════════════════════════════════════╗
 # ╠═ Find Markers and Save TSV output ═╣
 # ╚════════════════════════════════════╝
+message("Finding Markers and Saving out Marker Files")
 if (params.scaleMethod != "SD"){
     MergedSO <- PrepSCTFindMarkers(MergedSO, assay = "SCT", verbose = TRUE)
 }
@@ -268,6 +287,7 @@ if (params.IntegrationMethod != "NULL") {
 # ╔═══════════════════╗
 # ╠═ Run Correlation ═╣
 # ╚═══════════════════╝
+message("Running Correlation, Generating Plot, and Modifying Cluster Order in Seurat Object")
 VarGenes <- VariableFeatures(MergedSO)
 pdf(paste0(params.ProjectName,"UnintegratedCorPlot.pdf"), width = 20, height = 12)
 for(i in 1:length(params.Resolutions)){
@@ -314,14 +334,20 @@ if(params.IntegrationMethod == "NULL"){
 # ╔══════════════════════╗
 # ╠═ Save Seurat Object ═╣
 # ╚══════════════════════╝
+message("Saving Seurat Object")
 SaveSeuratRds(MergedSO, file = paste0("06_",params.ProjectName, "_ClusterSO.rds"))
+
+# ╔═══════════════════════╗
+# ╠═ Close Execution Log ═╣
+# ╚═══════════════════════╝
+sink(type = "message")
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣
 # ╚═════════════════╝
 sink(paste0("06_",params.ProjectName,"_ClusterValidation.log"))
 cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
-cat("╠  FindNeighborsClustersMarkers.R log\n")
+cat("╠  FindNeighborsClustersMarkers.R Validation log\n")
 cat(paste0("╠  Analysis Group: ", params.ProjectName,"\n"))
 cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
 cat("Seurat Object Status:\n")
@@ -330,7 +356,7 @@ sink()
 
 sink(paste0("06_",params.ProjectName,"_ClusterVersions.log"))
 cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
-cat("╠  FindNeighborsClustersMarkers.R Versions"\n)
+cat("╠  FindNeighborsClustersMarkers.R Versions\n")
 cat(paste0("╠  Analysis Group: ", params.ProjectName,"\n"))
 cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
 sessionInfo()

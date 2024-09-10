@@ -25,9 +25,23 @@ library(ggplot2)
 library(DoubletFinder)
 library(findPC)
 
+# ╔══════════════════════════╗
+# ╠═ Initiate Execution Log ═╣
+# ╚══════════════════════════╝
+ExecutionLog <- file(paste0("02_", params.sampleName,"_DoubletsRmExecution.log"), open = "wt")
+sink(ExecutionLog)
+cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
+cat("╠  DoubletFinder.R Execution log\n")
+cat(paste0("╠  Sample: ", params.sampleName,"\n"))
+cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
+cat("\n")
+sink()
+sink(ExecutionLog, type = "message")
+
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
 # ╚══════════════════════╝
+message("Reading in Parameters")
 args <- commandArgs(trailingOnly = TRUE)
 
 # RDS file from QC
@@ -53,6 +67,7 @@ params.scaleMethod <- args[6]
 # ╔═════════════════════════════════╗
 # ╠═ Preparation for Find Doublets ═╣
 # ╚═════════════════════════════════╝
+message("Preparing for Find Doublets")
 # read in .rds  
 samp <- readRDS(params.SeuratObject)
 
@@ -164,6 +179,7 @@ params.CellsRecovered <- length(readLines((paste0(params.DataDir,"/",list.files(
 # ╔═════════════════════╗
 # ╠═ Identify Doublets ═╣
 # ╚═════════════════════╝
+message("Identifying Doublets")
 #    (Percent Doublet is calculated based on a 0.8% increase per 1000 cells recovered as per the 10X website.)
 sweep.res.list_meta <- paramSweep(samp, PCs = 1:params.pcMax, sct = ifelse(toupper(params.scaleMethod) == "SD", F,T) )
 sweep.stats_meta <- summarizeSweep(sweep.res.list_meta, GT = FALSE)
@@ -195,25 +211,33 @@ DoubletCount <- table(samp[[doubletmeta]])
 # ╔═══════════════════════╗
 # ╠═ Subset out Doublets ═╣
 # ╚═══════════════════════╝
+message("Subsetting out Doublets")
 samp <- subset(samp, subset = !!as.name(doubletmeta) == "Singlet"  )
 
 # ╔════════════════════╗
 # ╠═ Metadata Cleanup ═╣
 # ╚════════════════════╝
+message("Cleaning up Metadata in Seurat Object")
 samp[[doubletmeta]] <- NULL
 samp[["RNA_snn_res.0.8"]] <- NULL
 
 # ╔══════════════════════╗
 # ╠═ Save Seurat Object ═╣
 # ╚══════════════════════╝
+message("Save Seurat Object")
 SaveSeuratRds(samp, file = paste0("02_", params.sampleName, "_DoubletsRmSO.rds"))
+
+# ╔═══════════════════════╗
+# ╠═ Close Execution Log ═╣
+# ╚═══════════════════════╝
+sink(type = "message")
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣
 # ╚═════════════════╝
 sink(paste0("02_", params.sampleName,"_DoubletsRmValidation.log"))
 cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
-cat("╠  DoubletFinder.R log\n")
+cat("╠  DoubletFinder.R Validation log\n")
 cat(paste0("╠  Sample: ", params.sampleName,"\n"))
 cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝")
 cat(paste0("PCs used: 1 - ", params.pcMax,"\n"))

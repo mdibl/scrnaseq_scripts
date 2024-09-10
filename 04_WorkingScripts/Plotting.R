@@ -25,9 +25,23 @@ library(SeuratObject)
 library(ggplot2)
 library(patchwork)
 
+# ╔══════════════════════════╗
+# ╠═ Initiate Execution Log ═╣
+# ╚══════════════════════════╝
+ExecutionLog <- file(paste0("08_",params.ProjectName,"_PlotExecution.log"), open = "wt")
+sink(ExecutionLog)
+cat("╔══════════════════════════════════════════════════════════════════════════════════════════════\n╗")
+cat("╠  Plotting.R Execution log\n")
+cat(paste0("╠  Analysis Group: ", params.ProjectName,"\n"))
+cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
+cat("\n")
+sink()
+sink(ExecutionLog, type = "message")
+
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
 # ╚══════════════════════╝
+message("Reading in Parameters")
 args <- commandArgs(trailingOnly = TRUE)
 
 # RDS file from QC
@@ -56,11 +70,13 @@ params.10xEULA <- args[7]
 # ╔════════════════════╗
 # ╠═ Load Seurat .rds ═╣
 # ╚════════════════════╝
+message("Loading in Seurat Object")
 MergedSO <- readRDS(params.SeuratObject)
 
 # ╔══════════════════════╗
 # ╠═ Make UMAP and TSNE ═╣
 # ╚══════════════════════╝
+message("Running UMAP and TSNE Reductions")
 MergedSO <- RunUMAP(MergedSO, dims = 1:params.pcMax, reduction = "pca", reduction.name = "umap.unintegrated")
 if(params.IntegrationMethod != "NULL" ){
     MergedSO <- RunUMAP(MergedSO, dims = 1:params.pcMax, reduction = paste0("integrated.",params.IntegrationMethod), reduction.name = paste0("umap.",params.IntegrationMethod))
@@ -81,6 +97,7 @@ BBCCDD
 # ╔══════════════════════════╗
 # ╠═ Plot Unintegrated UMAP ═╣
 # ╚══════════════════════════╝
+message("Generating Unintegrated UMAP Plots")
 p1 <- DimPlot(object = MergedSO, reduction = 'umap.unintegrated', pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = "orig.ident", shuffle = T)
 p2 <- FeaturePlot(MergedSO, reduction = "umap.unintegrated", pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "nFeature_RNA", order = T) + scale_color_viridis(limits =c(min(MergedSO$nFeature_RNA),max(MergedSO$nFeature_RNA)), direction = -1)
 p3 <- FeaturePlot(MergedSO, reduction = "umap.unintegrated", pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "nCount_RNA", order = T) + scale_color_viridis(limits =c(min(MergedSO$nCount_RNA),max(MergedSO$nCount_RNA)), direction = -1)
@@ -97,6 +114,7 @@ dev.off()
 # ╔══════════════════════════╗
 # ╠═ Plot Unintegrated TSNE ═╣
 # ╚══════════════════════════╝
+message("Generating Unintegrated TSNE Plots")
 p1 <- DimPlot(object = MergedSO, reduction = 'tsne.unintegrated', pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = "orig.ident", shuffle = T)
 p2 <- FeaturePlot(MergedSO, reduction = "tsne.unintegrated", pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "nFeature_RNA", order = T) + scale_color_viridis(limits =c(min(MergedSO$nFeature_RNA),max(MergedSO$nFeature_RNA)), direction = -1)
 p3 <- FeaturePlot(MergedSO, reduction = "tsne.unintegrated", pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "nCount_RNA", order = T) + scale_color_viridis(limits =c(min(MergedSO$nCount_RNA),max(MergedSO$nCount_RNA)), direction = -1)
@@ -115,6 +133,7 @@ dev.off()
 # ╚═════════════════════════════════╝
 pdf(paste0(params.ProjectName,params.IntegrationMethod,"IntegratedUMAP.pdf"),width = 20, height = 15)
 if (params.IntegrationMethod != "NULL"){
+    message("Generating Integrated UMAP Plots")
     p1 <- DimPlot(object = MergedSO, reduction = paste0("umap.",params.IntegrationMethod), pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = "orig.ident", shuffle = T)
     p2 <- FeaturePlot(MergedSO, reduction = paste0("umap.",params.IntegrationMethod), pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "nFeature_RNA", order = T) + scale_color_viridis(limits =c(min(MergedSO$nFeature_RNA),max(MergedSO$nFeature_RNA)), direction = -1)
     p3 <- FeaturePlot(MergedSO, reduction = paste0("umap.",params.IntegrationMethod), pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "nCount_RNA", order = T) + scale_color_viridis(limits =c(min(MergedSO$nCount_RNA),max(MergedSO$nCount_RNA)), direction = -1)
@@ -137,6 +156,7 @@ if(params.IntegrationMethod == "NULL"){
 # ╚═════════════════════════════════╝
 pdf(paste0(params.ProjectName,params.IntegrationMethod,"IntegratedTSNE.pdf"),width = 20, height = 15)
 if (params.IntegrationMethod != "NULL"){
+    message("Generating Integrated TSNE Plots")
     p1 <- DimPlot(object = MergedSO, reduction = paste0("tsne.",params.IntegrationMethod), pt.size =(-0.00007653*length(MergedSO$orig.ident))+4, label = T, group.by = "orig.ident", shuffle = T)
     p2 <- FeaturePlot(MergedSO, reduction = paste0("tsne.",params.IntegrationMethod), pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "nFeature_RNA", order = T) + scale_color_viridis(limits =c(min(MergedSO$nFeature_RNA),max(MergedSO$nFeature_RNA)), direction = -1)
     p3 <- FeaturePlot(MergedSO, reduction = paste0("tsne.",params.IntegrationMethod), pt.size = (-0.00001837*length(MergedSO$orig.ident))+1, features = "nCount_RNA", order = T) + scale_color_viridis(limits =c(min(MergedSO$nCount_RNA),max(MergedSO$nCount_RNA)), direction = -1)
@@ -157,6 +177,7 @@ if(params.IntegrationMethod == "NULL"){
 # ╔═══════════════════╗
 # ╠═ Make Loupe File ═╣
 # ╚═══════════════════╝
+message("Generating Loupe File")
 EULAmessage <- NULL
 if(toupper(params.MakeLoupe) == "TRUE"){
     if (toupper(params.10xEULA) == "AGREE"){
@@ -188,14 +209,20 @@ if(toupper(params.MakeLoupe) == "TRUE"){
 # ╔══════════════════════╗
 # ╠═ Save Seurat Object ═╣
 # ╚══════════════════════╝
+message("Saving Seurat Object")
 SaveSeuratRds(MergedSO, file = paste0("08",params.ProjectName, "_FinalSO.rds"))
+
+# ╔═══════════════════════╗
+# ╠═ Close Execution Log ═╣
+# ╚═══════════════════════╝
+sink(type = "message")
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣
 # ╚═════════════════╝
 sink(paste0("08_",params.ProjectName,"_PlotValidation.log"))
 cat("╔══════════════════════════════════════════════════════════════════════════════════════════════\n╗")
-cat("╠  Plotting.R log\n")
+cat("╠  Plotting.R Validation log\n")
 cat(paste0("╠  Analysis Group: ", params.ProjectName,"\n"))
 cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
 cat("Seurat Object Status:\n")

@@ -26,6 +26,12 @@ library(patchwork)
 # ╔══════════════════════════╗
 # ╠═ Initiate Execution Log ═╣
 # ╚══════════════════════════╝
+args <- commandArgs(trailingOnly = TRUE)
+
+# Project Name for this analysis group
+params.ProjectName <- args[1]
+
+
 ExecutionLog <- file(paste0("03_",params.ProjectName,"_MergeExecution.log"), open = "wt")
 sink(ExecutionLog)
 cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
@@ -40,10 +46,10 @@ sink(ExecutionLog, type = "message")
 # ╠═ Read in Parameters ═╣
 # ╚══════════════════════╝
 message("Reading in Parameters")
-args <- commandArgs(trailingOnly = TRUE)
+#args <- commandArgs(trailingOnly = TRUE)
 
 # Project Name for this analysis group
-params.ProjectName <- args[1]
+#params.ProjectName <- args[1]
 
 # Variable To Regress For Scaling
 params.VarsToRegress <- args[2]

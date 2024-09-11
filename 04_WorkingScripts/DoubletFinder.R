@@ -28,6 +28,11 @@ library(findPC)
 # ╔══════════════════════════╗
 # ╠═ Initiate Execution Log ═╣
 # ╚══════════════════════════╝
+args <- commandArgs(trailingOnly = TRUE)
+
+# SampleName
+params.sampleName <- args[4]
+
 ExecutionLog <- file(paste0("02_", params.sampleName,"_DoubletsRmExecution.log"), open = "wt")
 sink(ExecutionLog)
 cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
@@ -56,7 +61,7 @@ print(params.VarsToRegress)
 params.DataDir <- args[3]
 
 # SampleName
-params.sampleName <- args[4]
+#params.sampleName <- args[4]
 
 # Variable Features (VF) or ALL (default VF)
 params.scaleFeatures <- args[5]

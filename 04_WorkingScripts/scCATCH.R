@@ -25,6 +25,11 @@ library(scCATCH)
 # ╔══════════════════════════╗
 # ╠═ Initiate Execution Log ═╣
 # ╚══════════════════════════╝
+args <- commandArgs(trailingOnly = TRUE)
+
+# Project Name
+params.ProjectName <- args[7]
+
 ExecutionLog <- file(paste0("07_",params.ProjectName,"_scCATCHExecution.log"), open = "wt")
 sink(ExecutionLog)
 cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
@@ -39,7 +44,7 @@ sink(ExecutionLog, type = "message")
 # ╠═ Read in Parameters ═╣
 # ╚══════════════════════╝
 message("Reading in Parameters")
-args <- commandArgs(trailingOnly = TRUE)
+#args <- commandArgs(trailingOnly = TRUE)
 
 # RDS file from QC
 params.SeuratObject <- args[1]
@@ -67,7 +72,7 @@ print(params.Tissue)
 params.scaleMethod <- args[6]
 
 # Project Name
-params.ProjectName <- args[7]
+#params.ProjectName <- args[7]
 
 # Custom scCATCH file
 #params.Database <- args[4]

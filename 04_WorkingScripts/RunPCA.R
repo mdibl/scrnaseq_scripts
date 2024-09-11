@@ -28,6 +28,12 @@ library(findPC)
 # ╔══════════════════════════╗
 # ╠═ Initiate Execution Log ═╣
 # ╚══════════════════════════╝
+args <- commandArgs(trailingOnly = TRUE)
+
+# Sample Name
+params.ProjectName <- args[3]
+
+
 ExecutionLog <- file(paste0("04_", params.ProjectName,"_PCAExecution.log"), open = "wt")
 sink(ExecutionLog)
 cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
@@ -42,7 +48,7 @@ sink(ExecutionLog, type = "message")
 # ╠═ Read in Parameters ═╣
 # ╚══════════════════════╝
 message("Reading in Parameters")
-args <- commandArgs(trailingOnly = TRUE)
+#args <- commandArgs(trailingOnly = TRUE)
 
 # Load RDS
 MergedSO <- LoadSeuratRds(args[1])
@@ -51,7 +57,7 @@ MergedSO <- LoadSeuratRds(args[1])
 params.pcMax <- args[2]
 
 # Sample Name
-params.ProjectName <- args[3]
+#params.ProjectName <- args[3]
 
 # ╔═══════════╗
 # ╠═ Run PCA ═╣

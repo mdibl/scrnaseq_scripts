@@ -24,6 +24,12 @@ library(SeuratObject)
 # ╔══════════════════════════╗
 # ╠═ Initiate Execution Log ═╣
 # ╚══════════════════════════╝
+# Read in trailing arguments
+args <- commandArgs(trailingOnly = TRUE)
+
+# Sample Name
+params.sample_name <- args[4]
+
 ExecutionLog <- file(paste0("00_",params.sample_name,"_InitialExecution.log"), open = "wt")
 sink(ExecutionLog)
 cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
@@ -38,7 +44,7 @@ sink(ExecutionLog, type = "message")
 # ╚══════════════════════╝
 message("Reading in Parameters")
 # Read in trailing arguments
-args <- commandArgs(trailingOnly = TRUE)
+#args <- commandArgs(trailingOnly = TRUE)
 
 # File path to features, barcodes, mtx directory
 params.data_directory <- args[1]
@@ -65,7 +71,7 @@ tryCatch({
 })
 
 # Sample Name
-params.sample_name <- args[4]
+#params.sample_name <- args[4]
 
 # Project Name (analysis group)
 params.project_name <- gsub("\\]", "", gsub("\\[", "", gsub(", ", "-", args[5])))

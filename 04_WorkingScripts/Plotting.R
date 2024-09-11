@@ -28,6 +28,12 @@ library(patchwork)
 # ╔══════════════════════════╗
 # ╠═ Initiate Execution Log ═╣
 # ╚══════════════════════════╝
+args <- commandArgs(trailingOnly = TRUE)
+
+# Project Name
+params.ProjectName <- args[5]
+
+
 ExecutionLog <- file(paste0("08_",params.ProjectName,"_PlotExecution.log"), open = "wt")
 sink(ExecutionLog)
 cat("╔══════════════════════════════════════════════════════════════════════════════════════════════\n╗")
@@ -42,7 +48,7 @@ sink(ExecutionLog, type = "message")
 # ╠═ Read in Parameters ═╣
 # ╚══════════════════════╝
 message("Reading in Parameters")
-args <- commandArgs(trailingOnly = TRUE)
+#args <- commandArgs(trailingOnly = TRUE)
 
 # RDS file from QC
 params.SeuratObject <- args[1]
@@ -59,7 +65,7 @@ params.pcMax <- as.integer(args[3])
 params.IntegrationMethod <- args[4]
 
 # Project Name
-params.ProjectName <- args[5]
+#params.ProjectName <- args[5]
 
 # Make Loupe File T/F
 params.MakeLoupe <- args[6]

@@ -25,30 +25,11 @@ library(SeuratObject)
 library(ggplot2)
 library(findPC)
 
-# ╔══════════════════════════╗
-# ╠═ Initiate Execution Log ═╣
-# ╚══════════════════════════╝
-args <- commandArgs(trailingOnly = TRUE)
-
-# Sample Name
-params.ProjectName <- args[3]
-
-
-ExecutionLog <- file(paste0("04_", params.ProjectName,"_PCAExecution.log"), open = "wt")
-sink(ExecutionLog)
-cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
-cat("╠  RunPCA.R Execution log\n")
-cat(paste0("╠  Analysis Group: ", params.ProjectName,"\n"))
-cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
-cat("\n")
-sink()
-sink(ExecutionLog, type = "message")
-
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
 # ╚══════════════════════╝
 message("Reading in Parameters")
-#args <- commandArgs(trailingOnly = TRUE)
+args <- commandArgs(trailingOnly = TRUE)
 
 # Load RDS
 MergedSO <- LoadSeuratRds(args[1])
@@ -57,7 +38,7 @@ MergedSO <- LoadSeuratRds(args[1])
 params.pcMax <- args[2]
 
 # Sample Name
-#params.ProjectName <- args[3]
+params.ProjectName <- args[3]
 
 # ╔═══════════╗
 # ╠═ Run PCA ═╣
@@ -147,11 +128,6 @@ dev.off()
 # ╚══════════════════════╝
 message("Saving Seurat Object")
 SaveSeuratRds(MergedSO, file = paste0("04_", params.ProjectName, "_PCASO.rds"))
-
-# ╔═══════════════════════╗
-# ╠═ Close Execution Log ═╣
-# ╚═══════════════════════╝
-sink(type = "message")
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣

@@ -22,29 +22,11 @@ library(Seurat)
 library(SeuratObject)
 library(scCATCH)
 
-# ╔══════════════════════════╗
-# ╠═ Initiate Execution Log ═╣
-# ╚══════════════════════════╝
-args <- commandArgs(trailingOnly = TRUE)
-
-# Project Name
-params.ProjectName <- args[7]
-
-ExecutionLog <- file(paste0("07_",params.ProjectName,"_scCATCHExecution.log"), open = "wt")
-sink(ExecutionLog)
-cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
-cat("╠  scCATCH.R Execution log\n")
-cat(paste0("╠  Analysis Group: ", params.ProjectName,"\n"))
-cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
-cat("\n")
-sink()
-sink(ExecutionLog, type = "message")
-
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
 # ╚══════════════════════╝
 message("Reading in Parameters")
-#args <- commandArgs(trailingOnly = TRUE)
+args <- commandArgs(trailingOnly = TRUE)
 
 # RDS file from QC
 params.SeuratObject <- args[1]
@@ -72,7 +54,7 @@ print(params.Tissue)
 params.scaleMethod <- args[6]
 
 # Project Name
-#params.ProjectName <- args[7]
+params.ProjectName <- args[7]
 
 # Custom scCATCH file
 #params.Database <- args[4]
@@ -174,11 +156,6 @@ MergedSO$CIscCATCH <- Namedframe$CellType
 # ╚══════════════════════╝
 message("Saving Seurat Object")
 SaveSeuratRds(MergedSO, file = paste0("07",params.ProjectName, "_scCATCHSO.rds"))
-
-# ╔═══════════════════════╗
-# ╠═ Close Execution Log ═╣
-# ╚═══════════════════════╝
-sink(type = "message")
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣

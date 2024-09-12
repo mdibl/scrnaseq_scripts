@@ -25,30 +25,11 @@ library(Seurat.utils)
 library(ggplot2)
 library(patchwork)
 
-# ╔══════════════════════════╗
-# ╠═ Initiate Execution Log ═╣
-# ╚══════════════════════════╝
-args <- commandArgs(trailingOnly = TRUE)
-
-# Sample Name
-params.sample_name <- args[8]
-
-
-ExecutionLog <- file(paste0("01_",params.sample_name,"_NormQCExecution.log"), open = "wt")
-sink(ExecutionLog)
-cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
-cat("╠  Normalize_QC.R Execution log\n")
-cat(paste0("╠  Sample: ", params.sample_name,"\n"))
-cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
-cat("\n")
-sink()
-sink(ExecutionLog, type = "message")
-
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
 # ╚══════════════════════╝
 message("Reading in Parameters")
-#args <- commandArgs(trailingOnly = TRUE)
+args <- commandArgs(trailingOnly = TRUE)
 
 # Mitochondrial Genes
 message1 <- NULL
@@ -85,7 +66,7 @@ params.ncount_upper <- 100 - as.integer(args[5])
 params.mito_pct <- args[6]
 
 # Seurat rds file
-#params.SeuratObject <- args[7]
+params.SeuratObject <- args[7]
 
 # Sample Name
 params.sample_name <- args[8]
@@ -272,11 +253,6 @@ if (toupper(params.runCCScore) == "TRUE") {
 # ╚══════════════════════╝
 message("Saving Seurat Object")
 SaveSeuratRds(get(NameSO), file = paste0("01_",params.sample_name, "_NormQCSO.rds"))
-
-# ╔═══════════════════════╗
-# ╠═ Close Execution Log ═╣
-# ╚═══════════════════════╝
-sink(type = "message")
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣

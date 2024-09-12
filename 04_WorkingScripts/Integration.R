@@ -22,29 +22,11 @@ library(Matrix)
 library(Seurat)
 library(SeuratObject)
 
-# ╔══════════════════════════╗
-# ╠═ Initiate Execution Log ═╣
-# ╚══════════════════════════╝
-args <- commandArgs(trailingOnly = TRUE)
-
-# Project Name
-params.ProjectName <- args[3]
-
-ExecutionLog <- file(paste0("05_",params.ProjectName,"_IntegrateExecution.log"), open = "wt")
-sink(ExecutionLog)
-cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
-cat("╠  Integration.R Execution log\n")
-cat(paste0("╠  Analysis Group: ", params.ProjectName,"\n"))
-cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
-cat("\n")
-sink()
-sink(ExecutionLog, type = "message")
-
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
 # ╚══════════════════════╝
 message("Reading in Parameters")
-#args <- commandArgs(trailingOnly = TRUE)
+args <- commandArgs(trailingOnly = TRUE)
 
 # RDS file from QC
 params.SeuratObject <- args[1]
@@ -53,7 +35,7 @@ params.SeuratObject <- args[1]
 params.IntegrationMethod <- args[2]
 
 # Project Name
-#params.ProjectName <- args[3]
+params.ProjectName <- args[3]
 
 # Scale Options ( SD or default SCT)
 params.scaleMethod <- args[4]
@@ -87,11 +69,6 @@ if(params.IntegrationMethod == "FastMNN"){
 # ╚══════════════════════╝
 message("Saving Seurat Object")
 SaveSeuratRds(MergedSO, file = paste0("05_",params.ProjectName, "_IntegrateSO.rds"))
-
-# ╔═══════════════════════╗
-# ╠═ Close Execution Log ═╣
-# ╚═══════════════════════╝
-sink(type = "message")
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣

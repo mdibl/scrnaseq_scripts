@@ -21,30 +21,13 @@ library(Matrix)
 library(Seurat)
 library(SeuratObject)
 
-# ╔══════════════════════════╗
-# ╠═ Initiate Execution Log ═╣
-# ╚══════════════════════════╝
-# Read in trailing arguments
-args <- commandArgs(trailingOnly = TRUE)
 
-# Sample Name
-params.sample_name <- args[4]
-
-ExecutionLog <- file(paste0("00_",params.sample_name,"_InitialExecution.log"), open = "wt")
-sink(ExecutionLog)
-cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
-cat("╠  MakeSeurat.R Execution log\n")
-cat(paste0("╠  Sample: ", params.sample_name,"\n"))
-cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
-cat("\n")
-sink()
-sink(ExecutionLog, type = "message")
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
 # ╚══════════════════════╝
 message("Reading in Parameters")
 # Read in trailing arguments
-#args <- commandArgs(trailingOnly = TRUE)
+args <- commandArgs(trailingOnly = TRUE)
 
 # File path to features, barcodes, mtx directory
 params.data_directory <- args[1]
@@ -71,7 +54,7 @@ tryCatch({
 })
 
 # Sample Name
-#params.sample_name <- args[4]
+params.sample_name <- args[4]
 
 # Project Name (analysis group)
 params.project_name <- gsub("\\]", "", gsub("\\[", "", gsub(", ", "-", args[5])))
@@ -139,10 +122,6 @@ assign(NameSO, CreateSeuratObject(counts = get(Name10XAnnotated), project = para
 message("Saving Seurat Object")
 SaveSeuratRds(get(NameSO), file = paste0("00_",params.sample_name, "_InitalSO.rds"))
 
-# ╔═══════════════════════╗
-# ╠═ Close Execution Log ═╣
-# ╚═══════════════════════╝
-sink(type = "message")
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣

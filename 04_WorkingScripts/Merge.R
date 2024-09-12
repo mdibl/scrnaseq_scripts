@@ -23,33 +23,15 @@ library(Seurat)
 library(SeuratObject)
 library(patchwork)
 
-# ╔══════════════════════════╗
-# ╠═ Initiate Execution Log ═╣
-# ╚══════════════════════════╝
-args <- commandArgs(trailingOnly = TRUE)
-
-# Project Name for this analysis group
-params.ProjectName <- args[1]
-
-
-ExecutionLog <- file(paste0("03_",params.ProjectName,"_MergeExecution.log"), open = "wt")
-sink(ExecutionLog)
-cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
-cat("╠  Merge.R Execution log\n")
-cat(paste0("╠  Analysis Group: ", params.ProjectName,"\n"))
-cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
-cat("\n")
-sink()
-sink(ExecutionLog, type = "message")
 
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
 # ╚══════════════════════╝
 message("Reading in Parameters")
-#args <- commandArgs(trailingOnly = TRUE)
+args <- commandArgs(trailingOnly = TRUE)
 
 # Project Name for this analysis group
-#params.ProjectName <- args[1]
+params.ProjectName <- args[1]
 
 # Variable To Regress For Scaling
 params.VarsToRegress <- args[2]
@@ -139,10 +121,6 @@ if (params.scaleMethod == "SD"){
 message("Saving Seurat Object")
 saveRDS(MergedSO, paste0("03_", params.ProjectName,"_MergedSO.rds"))
 
-# ╔═══════════════════════╗
-# ╠═ Close Execution Log ═╣
-# ╚═══════════════════════╝
-sink(type = "message")
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣

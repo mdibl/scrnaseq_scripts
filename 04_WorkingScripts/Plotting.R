@@ -25,30 +25,11 @@ library(SeuratObject)
 library(ggplot2)
 library(patchwork)
 
-# ╔══════════════════════════╗
-# ╠═ Initiate Execution Log ═╣
-# ╚══════════════════════════╝
-args <- commandArgs(trailingOnly = TRUE)
-
-# Project Name
-params.ProjectName <- args[5]
-
-
-ExecutionLog <- file(paste0("08_",params.ProjectName,"_PlotExecution.log"), open = "wt")
-sink(ExecutionLog)
-cat("╔══════════════════════════════════════════════════════════════════════════════════════════════\n╗")
-cat("╠  Plotting.R Execution log\n")
-cat(paste0("╠  Analysis Group: ", params.ProjectName,"\n"))
-cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
-cat("\n")
-sink()
-sink(ExecutionLog, type = "message")
-
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
 # ╚══════════════════════╝
 message("Reading in Parameters")
-#args <- commandArgs(trailingOnly = TRUE)
+args <- commandArgs(trailingOnly = TRUE)
 
 # RDS file from QC
 params.SeuratObject <- args[1]
@@ -65,7 +46,7 @@ params.pcMax <- as.integer(args[3])
 params.IntegrationMethod <- args[4]
 
 # Project Name
-#params.ProjectName <- args[5]
+params.ProjectName <- args[5]
 
 # Make Loupe File T/F
 params.MakeLoupe <- args[6]
@@ -217,11 +198,6 @@ if(toupper(params.MakeLoupe) == "TRUE"){
 # ╚══════════════════════╝
 message("Saving Seurat Object")
 SaveSeuratRds(MergedSO, file = paste0("08",params.ProjectName, "_FinalSO.rds"))
-
-# ╔═══════════════════════╗
-# ╠═ Close Execution Log ═╣
-# ╚═══════════════════════╝
-sink(type = "message")
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣

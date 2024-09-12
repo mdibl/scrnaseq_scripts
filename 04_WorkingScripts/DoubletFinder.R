@@ -25,24 +25,6 @@ library(ggplot2)
 library(DoubletFinder)
 library(findPC)
 
-# ╔══════════════════════════╗
-# ╠═ Initiate Execution Log ═╣
-# ╚══════════════════════════╝
-args <- commandArgs(trailingOnly = TRUE)
-
-# SampleName
-params.sampleName <- args[4]
-
-ExecutionLog <- file(paste0("02_", params.sampleName,"_DoubletsRmExecution.log"), open = "wt")
-sink(ExecutionLog)
-cat("╔══════════════════════════════════════════════════════════════════════════════════════════════╗\n")
-cat("╠  DoubletFinder.R Execution log\n")
-cat(paste0("╠  Sample: ", params.sampleName,"\n"))
-cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
-cat("\n")
-sink()
-sink(ExecutionLog, type = "message")
-
 # ╔══════════════════════╗
 # ╠═ Read in Parameters ═╣
 # ╚══════════════════════╝
@@ -61,7 +43,7 @@ print(params.VarsToRegress)
 params.DataDir <- args[3]
 
 # SampleName
-#params.sampleName <- args[4]
+params.sampleName <- args[4]
 
 # Variable Features (VF) or ALL (default VF)
 params.scaleFeatures <- args[5]
@@ -231,11 +213,6 @@ samp[["RNA_snn_res.0.8"]] <- NULL
 # ╚══════════════════════╝
 message("Save Seurat Object")
 SaveSeuratRds(samp, file = paste0("02_", params.sampleName, "_DoubletsRmSO.rds"))
-
-# ╔═══════════════════════╗
-# ╠═ Close Execution Log ═╣
-# ╚═══════════════════════╝
-sink(type = "message")
 
 # ╔═════════════════╗
 # ╠═ Save Log File ═╣

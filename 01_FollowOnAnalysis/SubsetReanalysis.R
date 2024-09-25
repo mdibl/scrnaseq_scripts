@@ -1,5 +1,5 @@
 # ╔══════════════════════════════════════════════════════════════════════════════════════════════╗
-# ╠═                                   Title: SubsetReanalysis.R                                 ═╣
+# ╠═                                   Title: SubsetReanalysis.R                                ═╣
 # ╠═                                     Updated: May 31 2024                                   ═╣
 # ╠══════════════════════════════════════════════════════════════════════════════════════════════╣
 # ╠═                                       nf-core/scscape                                      ═╣
@@ -28,43 +28,6 @@ library(ggdendro)
 library(viridis)
 library(findPC)
 library(presto)
-
-# ╔══════════════════════╗
-# ╠═ Setting Parameters ═╣
-# ╚══════════════════════╝
-message("Setting Parameters")
-
-# Project Name for this analysis group
-params.ProjectName <- "NMT_FCT"
-
-# Variable To Regress For Scaling
-params.VarsToRegress <- c("nCount_RNA","nFeature_RNA","percent.mt","S.Score","G2M.Score")
-
-
-# Variable Features (VF) or ALL (default VF)
-params.scaleFeatures <- "VF"
-
-# Scale Options ( SD or default SCT)
-params.scaleMethod <- "SCT"
-
-params.seuratObject <- readRDS("./RDS/NMT_LabelTransfer.rds")
-
-params.subsetMetadataCol <- "NewCellIdent"
-
-params.subsetIdents <- c("Neo FCT 1","Neo FCT 2","Neo FCT 3","Meta FCT 1","Meta FCT 2")
-
-params.pcMax <- "NULL"
-
-# Resolutions
-params.Resolutions <- c(0.05,0.1,0.3,0.5,0.7,0.9,1.2,1.5)
-
-# Integration Method: Options( CCA, RPCA, Harmony, FastMNN, NULL) where NULL is to not run
-params.IntegrationMethod <- "NULL"
-
-params.MakeLoupe <- "TRUE"
-
-# Loupe EULA 
-params.10xEULA <- "AGREE"
 
 # ╔═══════════════════╗
 # ╠═ Create Log File ═╣
@@ -226,8 +189,7 @@ x = ElbowPoints$dims
 y = ElbowPoints$stdev
 df <- data.frame(x,y)
 
-pdf(paste0(params.ProjectName,"_Merged_ElbowPlot.pdf"), width = 20, height = 15)
-ggplot(df, aes(x, y)) +
+p1 <- ggplot(df, aes(x, y)) +
     geom_point() +
     geom_line(aes(x = seq(1,100), y = ElbowPoints[[ident]]), color = "green") +
     xlab("PC") +
@@ -235,7 +197,13 @@ ggplot(df, aes(x, y)) +
     geom_vline(xintercept = params.pcMax, linetype="dotted", 
                color = "red", size=1.5) +
     ggtitle(paste0("Loess Regression of Std Dev ~ PC  :  PC Chosen = ", params.pcMax))
+
+pdf(paste0(params.ProjectName,"_Merged_ElbowPlot.pdf"), width = 20, height = 15)
+print(p1)
 dev.off()
+
+loess <- loess(stdev ~ dims,data=ElbowPoints, span = idents[index])
+my_summary <- summary(loess)
 
 sink(file = paste0(params.ProjectName,"SubsetExecution.log"), append = T)
 cat("\n")
@@ -378,7 +346,7 @@ pl <- ggplot(df2, aes(x = x,
 
 ### Save Sankey Plot
 pdf(paste0(params.ProjectName,"UnintegratedSankeyPlot.pdf"), width = 20, height = 15)
-pl
+print(pl)
 dev.off()
 
 
@@ -574,7 +542,7 @@ p3 <- FeaturePlot(SubsetSO, reduction = "umap.unintegrated.Subset", pt.size = (-
 p4 <- FeaturePlot(SubsetSO, reduction = "umap.unintegrated.Subset", pt.size = (-0.00001837*length(SubsetSO$orig.ident))+1, features = "percent.mt", order = T) + scale_color_viridis(limits =c(min(SubsetSO$percent.mt),max(SubsetSO$percent.mt)), direction = -1)
 
 pdf(paste0(params.ProjectName,"UnintegratedUMAP.pdf"),width = 20, height = 15)
-p1 + p2 + p3 + p4 + plot_layout(design = Page1layout)
+print(p1 + p2 + p3 + p4 + plot_layout(design = Page1layout))
 try(expr = {DimPlot(object = SubsetSO, reduction = 'umap.unintegrated.Subset', pt.size =(-0.00007653*length(SubsetSO$orig.ident))+4, label = T, group.by = "CIscCATCH")})
 for (i in params.Resolutions){
     print(DimPlot(object = SubsetSO, reduction = 'umap.unintegrated.Subset', pt.size =(-0.00007653*length(SubsetSO$orig.ident))+4, label = T, group.by = paste0("unintegratedSubsetRes.",i), shuffle = T))
@@ -591,7 +559,7 @@ p3 <- FeaturePlot(SubsetSO, reduction = "tsne.unintegrated.Subset", pt.size = (-
 p4 <- FeaturePlot(SubsetSO, reduction = "tsne.unintegrated.Subset", pt.size = (-0.00001837*length(SubsetSO$orig.ident))+1, features = "percent.mt", order = T) + scale_color_viridis(limits =c(min(SubsetSO$percent.mt),max(SubsetSO$percent.mt)), direction = -1)
 
 pdf(paste0(params.ProjectName,"UnintegratedTSNE.pdf"),width = 20, height = 15)
-p1 + p2 + p3 + p4 + plot_layout(design = Page1layout)
+print(p1 + p2 + p3 + p4 + plot_layout(design = Page1layout))
 try(expr = {DimPlot(object = SubsetSO, reduction = 'tsne.unintegrated.Subset', pt.size =(-0.00007653*length(SubsetSO$orig.ident))+4, label = T, group.by = "CIscCATCH")})
 for (i in params.Resolutions){
     print(DimPlot(object = SubsetSO, reduction = 'tsne.unintegrated.Subset', pt.size =(-0.00007653*length(SubsetSO$orig.ident))+4, label = T, group.by = paste0("unintegratedSubsetRes.",i), shuffle = T))
@@ -687,7 +655,7 @@ if (length(EULAmessage) != 0){
 }
 cat("\n")
 cat("╠══════════════════════════════════════  Session Info  ════════════════════════════════════════╣\n")
-sessionInfo()
+print(sessionInfo())
 sink()
 
 

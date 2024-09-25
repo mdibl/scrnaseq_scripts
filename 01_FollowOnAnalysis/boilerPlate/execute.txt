@@ -1,1 +1,1 @@
-Rscript launch.R 2>&1 | tee Run.log
+Rscript launch.R 2>&1 | tee Run.log ; grep -v ">" *Execution.log | grep -v "\+" > ExectuionFinal.log

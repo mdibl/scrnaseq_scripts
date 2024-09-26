@@ -56,14 +56,11 @@ tryCatch({
 # Sample Name
 params.sample_name <- args[4]
 
-# Project Name (analysis group)
-params.project_name <- gsub("\\]", "", gsub("\\[", "", gsub(", ", "-", args[5])))
-
 # Min Cells
-params.min_cells <- as.integer(args[6])
+params.min_cells <- as.integer(args[5])
 
 # Min Features
-params.min_features <- as.integer(args[7])
+params.min_features <- as.integer(args[6])
 
 # ╔═══════════════════╗
 # ╠═ Subset Features ═╣
@@ -132,7 +129,6 @@ cat("╠  MakeSeurat.R Validation log\n")
 cat(paste0("╠  Sample: ", params.sample_name,"\n"))
 cat("╚══════════════════════════════════════════════════════════════════════════════════════════════╝\n")
 cat(paste0("Gene Identifier: ", params.gene_identifier,"\n"))
-cat(paste0("ProjectName: ", params.project_name,"\n"))
 cat(paste0("Minimum Cells: ", params.min_cells,"\n"))
 cat(paste0("Min Features: ", params.min_features,"\n"))
 cat("\n")

@@ -5,6 +5,7 @@ IH_UMAP <- as.data.frame(MergedSO@reductions$umap.Harmony@cell.embeddings)
 UI_TSNE <- as.data.frame(MergedSO@reductions$tsne.unintegrated@cell.embeddings)
 IH_TSNE <- as.data.frame(MergedSO@reductions$tsne.Harmony@cell.embeddings)
 Meta <- as.data.frame(MergedSO@meta.data)
+MultiQCTable <- bind_cols(UI_UMAP,IH_UMAP,UI_TSNE,IH_TSNE,Meta)
 
 merge()
 

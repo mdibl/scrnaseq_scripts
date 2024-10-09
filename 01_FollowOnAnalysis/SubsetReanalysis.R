@@ -644,6 +644,12 @@ if(toupper(params.MakeLoupe) == "TRUE"){
     }
 }
 
+# ╔══════════════════════╗
+# ╠═ Save Seurat Object ═╣
+# ╚══════════════════════╝
+message("Saving Seurat Object")
+SaveSeuratRds(SubsetSO, file = paste0(params.ProjectName, "_SubsetSO.rds"))
+
 sink(file = paste0(params.ProjectName,"SubsetExecution.log"), append = T)
 cat("\n")
 cat("╠═════════════════════════════════  Dimmensional Reduction  ═══════════════════════════════════╣\n")
